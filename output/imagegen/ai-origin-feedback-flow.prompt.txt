@@ -1,0 +1,45 @@
+Use case: infographic-diagram.
+Create one polished illustrated infographic for LinkedIn explaining Kvasir Exams' planned human-feedback prompt optimization workflow. Landscape 3:2 composition, high resolution, legible at social-post size.
+
+Reference images: the two supplied witch pictures are visual character-design references only. Borrow their charming oversized expressive eyes, friendly faces, rounded proportions, teal clothing and vivid orange accents. Draw HUMAN adult researchers (natural human skin colors, no witch hats, no green skin), one woman and one man, in this friendly character family. Combine with the appealing curved poses and expressive gestures of 1930s cel animation. Crucially use fresh pristine digital cel artwork, perfectly smooth SOLID color fills, restrained flat shadows, crisp THIN dark navy contour lines. Absolutely NO grain, noise, stippling, pointillism, paper texture, distressing, sepia, muddy brown/ochre palette, photorealism or 3D rendering. White background with very pale cool-blue accents. Clear teal, cobalt blue, fresh green and bright orange colors.
+
+Layout: editorial infographic with generous whitespace and a very clear numbered serpentine flow: top row 1 → 2 → 3, then a thin arrow down at right to bottom row 4 → 5 → 6 flowing right to left. Thus step 4 is bottom-right, step 5 bottom-center, step 6 bottom-left. Use six spacious equal panels with rounded thin borders and large numbered discs. Large bold highly readable typography; concise text, no excessive tiny labels. Illustrations inside panels must never overlap text or arrows. Connectors must be unambiguous and thin with small arrowheads. The researchers are actually doing the labeling, review and approval tasks. Models are clean illustrated computer devices distinct from the people.
+
+Exact title at top: "Better AI-origin assessment"
+Exact subtitle: "Kvasir Exams · Human feedback → prompt improvement"
+Small badge at upper right: "PLANNED WORKFLOW"
+
+Panel 1:
+Heading "1  Choose samples"
+Supporting text "Paste text or select an exam version"
+Illustration: a neat small stack of exam pages beside a document selection interface, distinct blue text lines.
+
+Panel 2:
+Heading "2  Add human feedback"
+Supporting text on two lines: "Known origin or estimated range"
+"Course materials: use / unavailable / irrelevant"
+Illustration: friendly female human researcher with reference-inspired large expressive eyes, teal cardigan, orange scarf, using a pencil and a simple horizontal range slider. Make this panel's materials line readable; these are three choices, not an automatic all-materials pipeline.
+
+Panel 3:
+Heading "3  Run the standard model"
+Supporting text "Save estimates and explanations"
+Illustration: a small blue computer showing a document and a probability gauge, with a speech bubble representing explanatory evidence. No invented accuracy claim.
+
+Panel 4 (bottom-right):
+Heading "4  Propose & review changes"
+Supporting text "Stronger model suggests prompt edits"
+Illustration: a more elaborate teal computer with a prompt document, a tiny minus/plus diff, and a friendly male HUMAN researcher reviewing it. Depict human review clearly.
+
+Panel 5 (bottom-center):
+Heading "5  Backtest"
+Supporting text "Check past samples + held-out cases"
+Illustration: two clearly labeled slim comparison columns "Current" and "Candidate", small check and cross symbols, a magnifier; no invented numerical performance statistics.
+
+Panel 6 (bottom-left):
+Heading "6  Human approval"
+Supporting text "Approve the prompt or revise"
+Illustration: the female researcher holding a clean prompt sheet with a green approval check, alongside the male researcher. Humans are in control.
+
+Below the panels, a thin curved teal feedback arrow returns from step 6 around the outer left edge up to step 3 along a clear outside route, labeled "Next evaluation uses the approved prompt". If that route risks clutter, use a bottom feedback connector ending at a small standard-model icon instead. A second short dashed orange connector from the backtest/review region toward step 4 can be labeled "Revise" only if it remains very clear; no tangled arrows.
+Footer in restrained readable type: "Refine instructions, test the results, keep people in control."
+This is prompt optimization, NOT model weight training: do not label it RLHF or depict model retraining. No claims of proven detection accuracy. Ensure all six steps and the three materials states are present. Elegant balanced diagram; characters give warmth but clear flow and readable text take priority.

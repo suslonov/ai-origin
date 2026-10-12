@@ -1,0 +1,4 @@
+langgraph>=1.0,<2
+langsmith>=0.4,<1
+pydantic>=2.10,<3
+requests>=2.32,<3

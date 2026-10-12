@@ -1,0 +1,37 @@
+Built-in image generator.
+
+Create a SCIENTIFIC WORKFLOW FIGURE, not a poster, not an infographic of illustrated panels. Landscape 3:2 white canvas, crisp publication-quality engineering flowchart. Diagram occupies almost all content; 90% white space and restrained typography/linework, no scenery, no illustrations inside nodes, no gradients, no decorative header, no large title, no slogans, no thick borders, no colored panel backgrounds, no oversized numbered circles. Thin straight dark navy connector lines and small consistent arrowheads. Small square-corner rectangles with white fill and a restrained thin teal or blue outline. Clean simple sans-serif labels in dark navy, consistent modest font sizes. Sparse teal accents for human steps, blue for model steps, orange for the revise connector, green for approval. Solid colors only: no grain, textures, stippling, pointillism, beige, sepia, muddy brown. The aesthetic is a research paper's method diagram, with just two tiny fun mascots.
+
+Two provided reference images: use their ACTUAL witch characters as the tiny researcher mascots, closely retaining the green face, huge golden-yellow eyes, teal bent pointed witch hat and teal robe, vivid orange hatband and scarf, short dark hair, warm smile and rounded facial silhouette. Do NOT replace them with generic human children, normal human skin, or big scientists. The reference is character identity, not just a palette. Render them in clear clean thin-line flat cel colors with a subtle 1930s animation expression. Each mascot must be very small, around 5% of image width and 10% height at most. They should jointly occupy less than 3% of the figure area. Place them OUTSIDE the relevant rectangles, as tiny marginal annotations. One holding a notebook next to human labeling, one with a tiny checkmark next to final approval. Nothing else is cartoon illustrated.
+
+Diagram layout, exact topology, with spacious carefully aligned connectors:
+Top row has 4 compact rectangular nodes, left to right, all aligned:
+A: 'Samples' with smaller second line 'Pasted text / exam → student → version'
+B: 'Human labels' with smaller lines 'Known origin or estimated probability range' and 'Select materials mode'
+C: 'Baseline evaluation' with smaller second line 'Standard model + current prompt'
+D: 'Prompt proposal' with smaller second line 'Stronger model analyzes experiments'
+Connect A → B → C → D with thin straight horizontal arrows.
+
+Second row flows RIGHT TO LEFT:
+E directly below D: 'Human review' / 'Inspect proposed prompt changes'
+F to its left directly below C: 'Backtest candidate' / 'Standard model · past + held-out samples'
+G to its left directly below B, a SMALL diamond: 'Approve?'
+Connect D down to E; E left to F; F left to G. These are actual connectors between nodes, no pictorial scenes.
+
+Below G, a compact rectangular output node H: 'Versioned prompt' / 'Save approved instructions'
+Connect G downward to H, arrow labeled 'Yes'.
+From the LEFT point of G, route a thin orange connector left into clear outside whitespace, down to a lower horizontal corridor that is BELOW ALL main nodes including H, across toward the right edge, then up to the bottom of E, with one arrowhead entering E. Label this connector 'No · revise'. It must not cross any nodes or other connectors; route it around the outside of H. If needed use a different clear orthogonal route rather than a crossing.
+
+From H route a thin dashed blue return connector to C labelled 'Use in the next evaluation'. Use available whitespace BETWEEN the top and second rows with an orthogonal path, never through nodes. Avoid crossing the G→H approval arrow. It can exit H to the right, travel through a clear corridor between G and F, then rise to C's bottom edge. If physical overlap would result, instead represent this return with a tiny matching port label 'Next run' on H and C, with no long crossing line.
+
+A small secondary rectangular side note under A, unconnected or a single dotted connector to B, containing exactly:
+'Course materials'
+'Use · Unavailable · Irrelevant'
+'Assess course connection only when applicable'
+This is a configuration note, not an extra sequential step.
+
+Small caption top-left only: 'Kvasir Exams - human-guided prompt optimization'
+Do not add any footer, marketing tagline, giant title, PLANNED WORKFLOW badge, unnecessary statistics, UI screenshots, computer drawings or pictograms. Do not add numbered step circles. The design MUST primarily read as rectangles and connectors of a formal algorithm/workflow figure. Maximize clarity and typographic restraint. The tiny witch mascots provide a light touch of humor but must not drive the overall impression.
+
+Final correction:
+Edit this scientific diagram keeping EVERYTHING unchanged except the blue dashed return connector, which incorrectly passes behind/through the Backtest candidate rectangle. Remove that ENTIRE dashed return line from Versioned prompt to Baseline evaluation, including both vertical portions and its top arrowhead, and remove its current text label. Replace it with standard matching connector ports: a short thin blue arrow exits the RIGHT edge of Versioned prompt and ends at a small blue outlined circle containing the letter 'R'. Label this short arrow 'Next run' above it. Place a SECOND identical small outlined blue circle containing 'R' directly ABOVE the Baseline evaluation rectangle, with a short thin blue downward arrow from that circle into the top edge of Baseline evaluation. The two matching R ports communicate the return path without crossing any other elements. No long dashed line and no blue return line touching Backtest candidate. Preserve all other nodes, arrows, title, text, two tiny green witch mascots, and minimalist styling exactly. White background, no texture.

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI-origin lab · Kvasir Exam</title>
+  <link rel="stylesheet" href="/ai-origin/style.css">
+  <script src="/ai-origin/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <div><p class="eyebrow">KVASIR EXAM / EXPERIMENTS</p><h1>AI-origin lab</h1><p>Collect examples. Evaluate a prompt. Learn from the differences.</p></div>
+      <div class="connection"><span id="connection">Connecting…</span><small id="storage"></small><small id="tracing"></small></div>
+    </header>
+    <div id="notice" role="status" hidden></div>
+    <details id="access"><summary>Remote access</summary><form id="access-form" class="inline"><label>Server access token<input id="access-token" type="password" autocomplete="off"></label><button>Connect</button></form></details>
+    <nav aria-label="Lab views"><button data-tab="samples" class="active">Samples <span id="sample-count">0</span></button><button data-tab="evaluate">Evaluate</button><button data-tab="results">Run history</button><button data-tab="candidates">Prompts &amp; improvements</button></nav>
+
+    <section id="samples-view" class="view">
+      <div class="section-head"><div><h2>Sample library</h2><p>Manual estimates are percentages, with an acceptable range. Known origin is recorded separately.</p></div><button id="new-sample">Add text</button></div>
+      <div class="inline filters"><label>Search title or ID<input id="sample-search" type="search" placeholder="Find a sample"></label><label>Language<select id="language-filter"><option value="">All languages</option></select></label><label>Dataset<select id="split-filter"><option value="">All</option><option value="development">Development</option><option value="holdout">Holdout</option></select></label><button id="refresh" class="secondary">Refresh</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Text / ID</th><th>Language</th><th>Manual estimate</th><th>Known origin</th><th>Materials</th><th>Dataset</th><th></th></tr></thead><tbody id="samples-body"></tbody></table></div>
+    </section>
+
+    <section id="evaluate-view" class="view" hidden>
+      <div class="section-head"><div><h2>Start an evaluation</h2><p>Each run saves the exact prompt, sample versions, model settings and responses.</p></div></div>
+      <form id="run-form" class="panel form-grid">
+        <label class="wide">Run name<input name="name" placeholder="Optional descriptive name" maxlength="200"></label>
+        <label>Prompt<select name="prompt_id" id="run-prompt"></select></label>
+        <label>OpenAI model<select name="model" id="run-model" required></select></label>
+        <label>Reasoning effort<select name="effort" id="run-effort"></select></label>
+        <label>Output token limit<input name="max_output_tokens" type="number" min="512" max="65536" value="8192" required></label>
+        <label>Dataset<select name="split" id="run-split"><option value="development">Development</option><option value="holdout">Holdout</option><option value="all">Both</option></select></label>
+        <label>Sample selection<select name="strategy" id="strategy"><option value="all">All eligible samples</option><option value="balanced">Balanced random percentage</option><option value="manual">Manual selection</option></select></label>
+        <label id="percent-field" hidden>Percentage<input name="percent" type="number" min="0.01" max="100" step="any" value="50"></label>
+        <label id="seed-field" hidden>Random seed<input name="seed" type="number" min="0" max="4294967295" value="42"></label>
+        <label>AI flag threshold (%)<input name="threshold" type="number" min="1" max="99" value="50" required></label>
+        <label>Backtest the exact samples from<select name="reference_run_id" id="reference-run"><option value="">New selection</option></select></label>
+        <p id="selection-help" class="help wide">Balanced selection gives each language × manual-score band an equal turn, without duplicating samples. The saved seed makes selection repeatable.</p>
+        <div id="manual-selection" class="wide selection-list" hidden></div>
+        <div class="actions wide"><button id="start-run">Start evaluation</button><button type="button" id="preview-prompt" class="secondary">View selected prompt</button><span id="selected-count" class="help"></span></div>
+        <p class="help wide">“Auto” uses the model's default effort. Model-specific API errors are saved; settings are never silently substituted.</p>
+      </form>
+    </section>
+
+    <section id="results-view" class="view" hidden>
+      <div class="section-head"><div><h2>Run history</h2><p>Agreement metrics use successful responses only. Failed and unfinished samples remain visible.</p></div></div>
+      <div class="inline"><label>Evaluation run<select id="run-history"></select></label><button id="refresh-results" class="secondary">Refresh results</button><button id="export-csv" class="secondary">Export CSV</button><button id="cancel-run" class="danger" hidden>Stop after current sample</button></div>
+      <div id="run-summary" class="panel muted">Select a run to inspect its results.</div>
+      <div id="metrics" class="metric-grid"></div>
+      <details id="metric-details" hidden><summary>Metrics by language, materials and dataset</summary><div id="grouped-metrics" class="table-wrap"></div></details>
+      <div class="table-wrap"><table><thead><tr><th>Text ID / link</th><th>Lang</th><th>Manual evaluation</th><th>Model evaluation</th><th>Difference</th><th>Result / explanation</th></tr></thead><tbody id="results-body"></tbody></table></div>
+      <div class="panel" id="improve-panel" hidden>
+        <h3>Improve this run's prompt</h3><p>Only completed development samples are sent to the improver. A candidate is saved for review; the repository prompt is never changed.</p>
+        <form id="improve-form" class="form-grid">
+          <label>Candidate name<input name="name" required maxlength="200" placeholder="Reduce false positives on short answers"></label>
+          <label>Improvement model<select name="model" id="improve-model" required></select></label>
+          <label>Reasoning effort<select name="effort" id="improve-effort"></select></label>
+          <label>Output token limit<input name="max_output_tokens" type="number" min="512" max="65536" value="16384" required></label>
+          <label class="wide">Optional guidance<textarea name="guidance" rows="3" placeholder="Describe a recurring failure or the tradeoff you want to improve."></textarea></label>
+          <div class="wide actions"><button>Generate candidate</button><span class="help">One improvement step, followed by your review and a separate backtest.</span></div>
+        </form>
+      </div>
+    </section>
+
+    <section id="candidates-view" class="view" hidden>
+      <div class="section-head"><div><h2>Prompts &amp; improvements</h2><p>Review a proposed change, save an edited version, and backtest before marking it approved.</p></div><button id="new-candidate" class="secondary">Paste a candidate</button></div>
+      <div class="inline"><label>Prompt<select id="candidate-select"></select></label><button id="download-prompt" class="secondary">Download TXT</button></div>
+      <div id="candidate-info" class="panel"></div>
+      <form id="candidate-form" class="panel form-grid">
+        <label>New version name<input name="name" required maxlength="200" placeholder="Name this version"></label>
+        <label>Notes<input name="rationale" placeholder="What changed and why"></label>
+        <label class="wide">Prompt text<textarea name="prompt" id="candidate-text" rows="16" required spellcheck="false"></textarea></label>
+        <div class="actions wide"><button>Save as new candidate</button><button type="button" id="use-candidate" class="secondary">Use in evaluation</button></div>
+      </form>
+      <details id="candidate-diff"><summary>Changes from parent prompt</summary><pre id="diff-text"></pre></details>
+      <form id="review-form" class="panel inline" hidden><label>Review note<input name="note" placeholder="Backtest findings or decision"></label><button name="status" value="approved">Mark approved</button><button name="status" value="rejected" class="danger">Reject</button></form>
+      <h3>Improvement history</h3><div class="table-wrap"><table><thead><tr><th>Created</th><th>Source run</th><th>Model / effort</th><th>Status</th><th>Candidate / details</th></tr></thead><tbody id="improvements-body"></tbody></table></div>
+    </section>
+    <footer>LangGraph workflows · Local experiment history · No automatic publication of prompt changes</footer>
+  </main>
+
+  <dialog id="sample-dialog">
+    <div class="section-head"><h2 id="sample-heading">Add a sample</h2><button type="button" id="close-sample" class="secondary">Close</button></div>
+    <p id="snapshot-note" class="help" hidden>This is the immutable sample version saved with this run.</p>
+    <form id="sample-form" class="form-grid">
+      <label class="wide">Title<input name="title" required maxlength="200"></label>
+      <label>Language code<input name="lang" value="en" list="languages" required placeholder="en, he, ru…"><datalist id="languages"><option value="en"><option value="he"><option value="ru"><option value="ar"><option value="es"><option value="fr"></datalist></label>
+      <label>Known origin<select name="origin"><option value="unknown">Unknown — human estimate only</option><option value="human">Known human</option><option value="ai">Known AI-generated</option><option value="mixed">Mixed / AI-edited</option></select></label>
+      <label>Manual AI probability (%)<input name="manual_probability" type="number" min="0" max="100" step="any" required></label>
+      <label>Acceptable range, lower (%)<input name="manual_low" type="number" min="0" max="100" step="any" required></label>
+      <label>Acceptable range, upper (%)<input name="manual_high" type="number" min="0" max="100" step="any" required></label>
+      <label>Dataset<select name="split"><option value="development">Development — may inform improvements</option><option value="holdout">Holdout — never sent to improver</option></select></label>
+      <label class="wide">Student text<textarea name="text" dir="auto" rows="10" required maxlength="200000"></textarea></label>
+      <label class="wide">Label notes / evidence of origin<textarea name="notes" rows="2" placeholder="Why this judgment, or how the origin is known. Hidden from the evaluator."></textarea></label>
+      <label>Course materials<select name="materials_mode" id="materials-mode"><option value="irrelevant">Irrelevant</option><option value="unavailable">Unavailable</option><option value="use">Use supplied materials</option></select></label>
+      <label class="wide">Assignment / question<textarea name="assignment" dir="auto" rows="3"></textarea></label>
+      <label class="wide" id="materials-field" hidden>Course materials<textarea name="materials" dir="auto" rows="6" maxlength="200000"></textarea></label>
+      <div class="wide actions"><button id="save-sample">Save sample</button><span id="sample-id" class="help"></span></div>
+    </form>
+  </dialog>
+  <dialog id="text-dialog"><div class="section-head"><h2 id="text-heading">Prompt</h2><button id="close-text" class="secondary">Close</button></div><pre id="text-content"></pre></dialog>
+</body>
+</html>
