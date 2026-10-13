@@ -133,7 +133,7 @@ class Service:
         if run["status"] in ACTIVE:
             raise ValueError("Wait for the source run to finish.")
         if not any(r["status"] == "completed" and r["sample"]["split"] == "development" for r in run["results"]):
-            raise ValueError("Improvement needs completed development samples; holdout samples are never sent to the improver.")
+            raise ValueError("Improvement needs completed development samples; holdout and test samples are never sent to the improver.")
         job = {"id": new_id("improvement"), "created_at": now(), "status": "queued",
                "config": config.model_dump(), "trace_id": str(uuid.uuid4())}
         self.store.write("improvements", job)

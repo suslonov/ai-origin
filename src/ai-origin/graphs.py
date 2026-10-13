@@ -148,7 +148,7 @@ def build_improvement_graph(service: Service) -> Any:
     def prepare(state: ImproveState) -> ImproveState:
         job = service.store.get("improvements", state["job_id"])
         run = service.store.get("runs", job["config"]["run_id"])
-        # Exclude holdout results AND their metrics from optimizer input. Merely
+        # Exclude holdout/test results AND their metrics from optimizer input. Merely
         # hiding their labels but leaking the overall score still contaminates it.
         rows = [r for r in run["results"] if r["status"] == "completed" and r["sample"]["split"] == "development"]
         examples = [{"sample": r["sample"], "model_probability": r["model_probability"],

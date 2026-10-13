@@ -97,7 +97,18 @@ their documentation. Input truncation and automatic paid retries are disabled.
 
 ## Selection and metrics
 
-- **All:** every sample in the chosen development/holdout split.
+Each sample belongs to one dataset, chosen when adding or editing it:
+
+- **Development:** examples that may inform prompt improvements.
+- **Holdout:** reserved evaluation examples.
+- **Test:** samples deliberately added for a particular test, kept separate from
+  Holdout and excluded from prompt improvements.
+
+Use **Samples → Add text → Dataset → Test** to add a test sample, then choose
+**Evaluate → Dataset → Test** to evaluate it. **All datasets** includes all three.
+Existing sample assignments and historical run snapshots are unchanged.
+
+- **All:** every sample in the chosen development/holdout/test split.
 - **Balanced random %:** select `ceil(N × percent / 100)` unique samples. Strata
   are language × manual-probability band: `[0, 33⅓)`, `[33⅓, 66⅔)`, `[66⅔, 100]`.
   Seeded round-robin sampling balances available strata; depleted strata yield
@@ -113,7 +124,7 @@ threshold; unknown/mixed examples do not enter those metrics. Undefined rates
 display a dash. Failed/pending responses never become 0% predictions. Results
 are also grouped by language, materials mode and dataset split.
 
-Holdout examples and their aggregate metrics are excluded from improvement input.
+Holdout and Test examples and their aggregate metrics are excluded from improvement input.
 Choose related student versions/assignment variations for the same split manually.
 Repeatedly choosing prompts based on one holdout set can still overfit it: refresh
 the holdout as the library grows. Agreement scores do not calibrate probabilities.

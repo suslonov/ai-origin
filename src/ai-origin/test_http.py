@@ -135,5 +135,29 @@ def test_dashboard_workflow(server: tuple[str, Service], tmp_path: Path) -> None
         page.get_by_role("button", name="Add text", exact=True).click()
         page.screenshot(path=str(tmp_path / "sample-mobile.png"), full_page=True)
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        # Deliberate test examples stay separate from both Development and Holdout.
+        for field, value in {"title": "Deliberate test", "text": "My test answer.",
+                             "manual_probability": "20", "manual_low": "10", "manual_high": "30"}.items():
+            form.locator(f'[name="{field}"]').fill(value)
+        form.locator('[name="split"]').select_option("test")
+        page.get_by_role("button", name="Save sample", exact=True).click()
+        page.wait_for_selector("#sample-dialog", state="hidden")
+        page.locator('#split-filter').select_option('test')
+        playwright.expect(page.locator('#samples-body')).to_contain_text('Deliberate test')
+        playwright.expect(page.locator('#samples-body')).not_to_contain_text('A multilingual example')
+        page.locator('#samples-body [data-edit-sample]').click()
+        playwright.expect(form.locator('[name="split"]')).to_have_value('test')
+        page.get_by_role("button", name="Save sample", exact=True).click()
+        page.wait_for_selector("#sample-dialog", state="hidden")
+        page.locator('[data-tab="evaluate"]').click()
+        page.locator('#reference-run').select_option('')
+        page.locator('#run-split').select_option('test')
+        page.locator('#strategy').select_option('all')
+        page.get_by_role("button", name="Start evaluation", exact=True).click()
+        playwright.expect(page.locator('#results-body')).to_contain_text('Deliberate test')
+        page.wait_for_function("document.querySelector('#run-summary').textContent.includes('1 completed')")
+        playwright.expect(page.locator('#improve-panel')).to_be_hidden()
+        assert any(r['config']['split'] == 'test' and r['results'][0]['sample']['split'] == 'test'
+                   for r in app.store.list('runs'))
         browser.close()
     assert errors == []

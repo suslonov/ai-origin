@@ -31,7 +31,7 @@ class SampleInput(InputModel):
     materials_mode: Literal["use", "unavailable", "irrelevant"] = "irrelevant"
     materials: str = Field(default="", max_length=200_000)
     assignment: str = Field(default="", max_length=30_000)
-    split: Literal["development", "holdout"] = "development"
+    split: Literal["development", "holdout", "test"] = "development"
 
     @field_validator("lang", mode="before")
     @classmethod
@@ -63,7 +63,7 @@ class RunInput(ModelInput):
     percent: float = Field(default=100, gt=0, le=100)
     seed: int = Field(default=42, ge=0, le=2**32 - 1)
     sample_ids: list[str] = Field(default_factory=list, max_length=10_000)
-    split: Literal["development", "holdout", "all"] = "development"
+    split: Literal["development", "holdout", "test", "all"] = "development"
     threshold: float = Field(default=50, gt=0, lt=100)
     reference_run_id: str | None = None
 

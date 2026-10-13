@@ -19,7 +19,7 @@
 
     <section id="samples-view" class="view">
       <div class="section-head"><div><h2>Sample library</h2><p>Manual estimates are percentages, with an acceptable range. Known origin is recorded separately.</p></div><button id="new-sample">Add text</button></div>
-      <div class="inline filters"><label>Search title or ID<input id="sample-search" type="search" placeholder="Find a sample"></label><label>Language<select id="language-filter"><option value="">All languages</option></select></label><label>Dataset<select id="split-filter"><option value="">All</option><option value="development">Development</option><option value="holdout">Holdout</option></select></label><button id="refresh" class="secondary">Refresh</button></div>
+      <div class="inline filters"><label>Search title or ID<input id="sample-search" type="search" placeholder="Find a sample"></label><label>Language<select id="language-filter"><option value="">All languages</option></select></label><label>Dataset<select id="split-filter"><option value="">All</option><option value="development">Development</option><option value="holdout">Holdout</option><option value="test">Test</option></select></label><button id="refresh" class="secondary">Refresh</button></div>
       <div class="table-wrap"><table><thead><tr><th>Text / ID</th><th>Language</th><th>Manual estimate</th><th>Known origin</th><th>Materials</th><th>Dataset</th><th></th></tr></thead><tbody id="samples-body"></tbody></table></div>
     </section>
 
@@ -31,7 +31,7 @@
         <label>OpenAI model<select name="model" id="run-model" required></select></label>
         <label>Reasoning effort<select name="effort" id="run-effort"></select></label>
         <label>Output token limit<input name="max_output_tokens" type="number" min="512" max="65536" value="8192" required></label>
-        <label>Dataset<select name="split" id="run-split"><option value="development">Development</option><option value="holdout">Holdout</option><option value="all">Both</option></select></label>
+        <label>Dataset<select name="split" id="run-split"><option value="development">Development</option><option value="holdout">Holdout</option><option value="test">Test</option><option value="all">All datasets</option></select></label>
         <label>Sample selection<select name="strategy" id="strategy"><option value="all">All eligible samples</option><option value="balanced">Balanced random percentage</option><option value="manual">Manual selection</option></select></label>
         <label id="percent-field" hidden>Percentage<input name="percent" type="number" min="0.01" max="100" step="any" value="50"></label>
         <label id="seed-field" hidden>Random seed<input name="seed" type="number" min="0" max="4294967295" value="42"></label>
@@ -91,7 +91,7 @@
       <label>Manual AI probability (%)<input name="manual_probability" type="number" min="0" max="100" step="any" required></label>
       <label>Acceptable range, lower (%)<input name="manual_low" type="number" min="0" max="100" step="any" required></label>
       <label>Acceptable range, upper (%)<input name="manual_high" type="number" min="0" max="100" step="any" required></label>
-      <label>Dataset<select name="split"><option value="development">Development — may inform improvements</option><option value="holdout">Holdout — never sent to improver</option></select></label>
+      <label>Dataset<select name="split"><option value="development">Development — may inform improvements</option><option value="holdout">Holdout — never sent to improver</option><option value="test">Test — intentional test samples, never sent to improver</option></select></label>
       <label class="wide">Student text<textarea name="text" dir="auto" rows="10" required maxlength="200000"></textarea></label>
       <label class="wide">Label notes / evidence of origin<textarea name="notes" rows="2" placeholder="Why this judgment, or how the origin is known. Hidden from the evaluator."></textarea></label>
       <label>Course materials<select name="materials_mode" id="materials-mode"><option value="irrelevant">Irrelevant</option><option value="unavailable">Unavailable</option><option value="use">Use supplied materials</option></select></label>

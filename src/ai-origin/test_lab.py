@@ -94,11 +94,12 @@ def test_balanced_selection_is_seeded_and_stratified() -> None:
     assert len(select_samples(samples, config.model_copy(update={"percent": .1}))) == 1
 
 
-def test_manual_selection_respects_holdout() -> None:
-    samples = [{**sample(split="holdout").model_dump(), "id": "held"}]
+@pytest.mark.parametrize("split", ["holdout", "test"])
+def test_manual_selection_respects_reserved_datasets(split: str) -> None:
+    samples = [{**sample(split=split).model_dump(), "id": "held"}]
     with pytest.raises(ValueError):
         select_samples(samples, RunInput(model="test-model", strategy="manual", sample_ids=["held"]))
-    assert len(select_samples(samples, RunInput(model="test-model", strategy="manual", sample_ids=["held"], split="holdout"))) == 1
+    assert len(select_samples(samples, RunInput(model="test-model", strategy="manual", sample_ids=["held"], split=split))) == 1
 
 
 def test_metrics_separate_estimates_from_known_origin() -> None:
@@ -199,6 +200,7 @@ def test_cancel_preserves_inflight_result(lab: Service) -> None:
 def test_improver_sees_development_only_and_creates_candidate(lab: Service) -> None:
     lab.save_sample(sample(text="DEVELOPMENT SAMPLE"))
     lab.save_sample(sample(text="HOLDOUT SECRET", split="holdout"))
+    lab.save_sample(sample(text="TEST SECRET", split="test"))
     run = wait_run(lab, split="all")
     original = REPO_PROMPT.read_bytes()
     lab.provider.replies = [{"prompt": "A revised reusable prompt", "rationale": "One focused adjustment."}]
@@ -207,7 +209,7 @@ def test_improver_sees_development_only_and_creates_candidate(lab: Service) -> N
     result = lab.store.get("improvements", job["id"])
     assert result["status"] == "completed"
     content = lab.provider.requests[-1]["input"][0]["content"]
-    assert "HOLDOUT SECRET" not in content and "DEVELOPMENT SAMPLE" in content
+    assert "HOLDOUT SECRET" not in content and "TEST SECRET" not in content and "DEVELOPMENT SAMPLE" in content
     assert json.loads(content)["development_metrics"]["total"] == 1
     candidate = lab.candidate_detail(result["candidate_id"])
     assert candidate["prompt"] == "A revised reusable prompt" and candidate["diff"]
@@ -215,9 +217,10 @@ def test_improver_sees_development_only_and_creates_candidate(lab: Service) -> N
     assert REPO_PROMPT.read_bytes() == original
 
 
-def test_holdout_only_run_cannot_improve(lab: Service) -> None:
-    lab.save_sample(sample(split="holdout"))
-    run = wait_run(lab, split="holdout")
+@pytest.mark.parametrize("split", ["holdout", "test"])
+def test_reserved_only_run_cannot_improve(lab: Service, split: str) -> None:
+    lab.save_sample(sample(split=split))
+    run = wait_run(lab, split=split)
     with pytest.raises(ValueError, match="development"):
         lab.start_improvement(ImprovementInput(model="test-model", run_id=run["id"], name="v1"))
 
@@ -252,3 +255,14 @@ def test_credentials_and_effort_do_not_leak(monkeypatch: pytest.MonkeyPatch) -> 
     assert request["store"] is False and request["truncation"] == "disabled"
     with pytest.raises(ValueError, match="refused"):
         parse_response({"status": "completed", "output": [{"content": [{"type": "refusal", "refusal": "No"}]}]})
+
+
+@pytest.mark.parametrize("strategy", ["all", "balanced", "manual"])
+def test_test_dataset_stays_separate(lab: Service, strategy: str) -> None:
+    records = {split: lab.save_sample(sample(split=split)) for split in ["development", "holdout", "test"]}
+    run = wait_run(lab, split="test", strategy=strategy, percent=100,
+                   sample_ids=[records["test"]["id"]] if strategy == "manual" else [])
+    assert [row["sample"]["id"] for row in run["results"]] == [records["test"]["id"]]
+    assert set(run["metrics"]["split"]) == {"test"}
+    assert run["metrics"]["overall"]["completed"] == 1
+    assert {s["split"] for s in select_samples(list(records.values()), RunInput(model="test-model", split="all"))} == {"development", "holdout", "test"}
