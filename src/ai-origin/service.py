@@ -23,12 +23,13 @@ from langsmith import tracing_context
 from graphs import build_evaluation_graph, build_improvement_graph
 from metrics import comparison, grouped_metrics, select_samples
 from provider import OpenAIProvider
-from schemas import CandidateInput, CandidateReview, ImprovementInput, RunInput, SampleInput
+from schemas import CandidateInput, CandidateRename, CandidateReview, ImprovementInput, RunInput, SampleInput
 from storage import Store, new_id, now
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REPO_PROMPT = REPO_ROOT / "src/system_bucket/exam/grade/ai_origin.txt"
 ACTIVE = {"queued", "running", "cancelling"}
+DATASET_LABELS = {"development": "Development", "holdout": "Holdout", "test": "Test", "all": "All datasets"}
 
 
 def digest(text: str) -> str:
@@ -89,6 +90,18 @@ class Service:
         self.store.write("candidates", candidate)
         return candidate
 
+    def rename_candidate(self, candidate_id: str, data: CandidateRename) -> dict:
+        with self.store.lock:
+            candidate = self.store.get("candidates", candidate_id)
+            candidate["name"] = data.name
+            self.store.write("candidates", candidate)
+            return candidate
+
+    def delete_candidate(self, candidate_id: str) -> None:
+        # Runs keep their own prompt snapshot, so removing a version does not
+        # rewrite evaluation history.
+        self.store.delete("candidates", candidate_id)
+
     def review_candidate(self, candidate_id: str, review: CandidateReview) -> dict:
         with self.store.lock:
             candidate = self.store.get("candidates", candidate_id)
@@ -117,8 +130,14 @@ class Service:
             samples = select_samples(self.store.list("samples"), config)
         if not samples:
             raise ValueError("No samples match this selection.")
-        run = {"id": new_id("run"), "name": config.name or f"{config.model} · {prompt['name']}",
-               "created_at": now(), "status": "queued", "config": config.model_dump(), "prompt": prompt,
+        saved = config.model_dump()
+        # A backtest keeps the reference run's dataset. The form split is disabled
+        # and would otherwise be recorded as the schema default.
+        if config.reference_run_id:
+            saved["split"] = reference["config"].get("split", saved["split"])
+        base = config.name or f"{config.model} · {prompt['name']}"
+        run = {"id": new_id("run"), "name": f"{base} · {DATASET_LABELS.get(saved['split'], saved['split'])}",
+               "created_at": now(), "status": "queued", "config": saved, "prompt": prompt,
                "cancel_requested": False, "trace_id": str(uuid.uuid4()),
                "results": [{"sample": s, "status": "pending"} for s in samples]}
         run["metrics"] = grouped_metrics(run["results"], config.threshold)

@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 from pydantic import ValidationError
 
 from provider import ProviderError
-from schemas import CandidateInput, CandidateReview, ImprovementInput, RunInput, SampleInput
+from schemas import CandidateInput, CandidateRename, CandidateReview, ImprovementInput, RunInput, SampleInput
 from service import Service
 
 LOG = logging.getLogger(__name__)
@@ -124,6 +124,11 @@ def handle(handler: BaseHTTPRequestHandler) -> None:
                 return send(handler, service.start_improvement(ImprovementInput.model_validate(body)), 202)
             if parts == ["candidates"]:
                 return send(handler, service.save_candidate(CandidateInput.model_validate(body)), 201)
+            if len(parts) == 3 and parts[0] == "candidates" and parts[2] == "rename":
+                return send(handler, service.rename_candidate(parts[1], CandidateRename.model_validate(body)))
+            if len(parts) == 3 and parts[0] == "candidates" and parts[2] == "delete":
+                service.delete_candidate(parts[1])
+                return send(handler, {"id": parts[1], "deleted": True})
             if len(parts) == 3 and parts[0] == "candidates" and parts[2] == "review":
                 return send(handler, service.review_candidate(parts[1], CandidateReview.model_validate(body)))
         send(handler, {"error": "Route not found"}, 404)

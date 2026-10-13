@@ -17,7 +17,7 @@ from pydantic import ValidationError
 from graphs import evaluation_content, evaluation_instructions
 from metrics import quality_metrics, select_samples
 from provider import OpenAIProvider, ProviderError, make_request, parse_response, text_model
-from schemas import CandidateInput, CandidateReview, ImprovementInput, RunInput, SampleInput
+from schemas import CandidateInput, CandidateRename, ImprovementInput, RunInput, SampleInput
 from service import REPO_PROMPT, Service
 from storage import Store
 
@@ -141,12 +141,15 @@ def test_evaluation_snapshots_and_backtest(lab: Service) -> None:
     saved = lab.save_sample(sample())
     run = wait_run(lab)
     assert run["status"] == "completed"
+    assert run["name"] == "test-model · Current repository prompt · Development"
     assert run["results"][0]["model_probability"] == 25
     assert run["prompt"]["text"] == REPO_PROMPT.read_text()
     assert run["results"][0]["request"]["instructions"].startswith(run["prompt"]["text"])
     lab.save_sample(sample(text="Edited later", manual_probability=90, manual_low=80, manual_high=100), saved["id"], saved["revision"])
     candidate = lab.save_candidate(CandidateInput(name="Candidate", prompt="Different prompt"))
-    repeat = wait_run(lab, prompt_id=candidate["id"], reference_run_id=run["id"])
+    repeat = wait_run(lab, name="Backtest", prompt_id=candidate["id"], reference_run_id=run["id"])
+    assert repeat["name"] == "Backtest · Development"
+    assert repeat["config"]["split"] == "development"
     assert repeat["results"][0]["sample"]["text"] == "My own answer."
     assert repeat["results"][0]["sample"]["manual_probability"] == 20
     assert repeat["comparison"]["paired_samples"] == 1
@@ -213,7 +216,13 @@ def test_improver_sees_development_only_and_creates_candidate(lab: Service) -> N
     assert json.loads(content)["development_metrics"]["total"] == 1
     candidate = lab.candidate_detail(result["candidate_id"])
     assert candidate["prompt"] == "A revised reusable prompt" and candidate["diff"]
-    lab.review_candidate(candidate["id"], CandidateReview(status="approved", note="Checked"))
+    renamed = lab.rename_candidate(candidate["id"], CandidateRename(name="Clearer name"))
+    assert renamed["name"] == "Clearer name" and renamed["prompt"] == candidate["prompt"]
+    assert lab.prompt(candidate["id"])["name"] == "Clearer name"
+    lab.delete_candidate(candidate["id"])
+    with pytest.raises(FileNotFoundError):
+        lab.candidate_detail(candidate["id"])
+    assert not (lab.store.root / "candidates" / f"{candidate['id']}.txt").exists()
     assert REPO_PROMPT.read_bytes() == original
 
 
@@ -221,6 +230,7 @@ def test_improver_sees_development_only_and_creates_candidate(lab: Service) -> N
 def test_reserved_only_run_cannot_improve(lab: Service, split: str) -> None:
     lab.save_sample(sample(split=split))
     run = wait_run(lab, split=split)
+    assert run["name"].endswith(" · " + {"holdout": "Holdout", "test": "Test"}[split])
     with pytest.raises(ValueError, match="development"):
         lab.start_improvement(ImprovementInput(model="test-model", run_id=run["id"], name="v1"))
 

@@ -59,31 +59,39 @@
       <section class="panel" aria-labelledby="histogram-title"><h3 id="histogram-title">Difference distribution</h3><div id="difference-histogram"><p class="help">Select a run to see its differences.</p></div></section>
       <div class="table-wrap"><table id="results-table"><thead><tr><th scope="col" aria-sort="none"><button type="button" class="sort-button" data-result-sort="text">Text ID / link<span class="sort-direction" aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-button" data-result-sort="lang">Lang<span class="sort-direction" aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-button" data-result-sort="manual">Manual evaluation<span class="sort-direction" aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-button" data-result-sort="model">Model evaluation<span class="sort-direction" aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-button" data-result-sort="difference">Difference<span class="sort-direction" aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-button" data-result-sort="result">Result / explanation<span class="sort-direction" aria-hidden="true">↕</span></button></th></tr></thead><tbody id="results-body"></tbody></table></div>
       <div class="panel" id="improve-panel" hidden>
-        <h3>Improve this run's prompt</h3><p>Only completed development samples are sent to the improver. A candidate is saved for review; the repository prompt is never changed.</p>
+        <h3>Improve this run's prompt</h3><p>Only completed development samples are sent to the improver. The result is saved as a new version; the repository prompt is never changed.</p>
         <form id="improve-form" class="form-grid">
           <label>Candidate name<input name="name" required maxlength="200" placeholder="Reduce false positives on short answers"></label>
           <label>Improvement model<select name="model" id="improve-model" required></select></label>
           <label>Reasoning effort<select name="effort" id="improve-effort"></select></label>
           <label>Output token limit<input name="max_output_tokens" type="number" min="512" max="65536" value="16384" required></label>
           <label class="wide">Optional guidance<textarea name="guidance" rows="3" placeholder="Describe a recurring failure or the tradeoff you want to improve."></textarea></label>
-          <div class="wide actions"><button>Generate candidate</button><span class="help">One improvement step, followed by your review and a separate backtest.</span></div>
+          <div class="wide actions"><button>Generate candidate</button><span class="help">One improvement step. Backtest the saved version separately.</span></div>
         </form>
       </div>
     </section>
 
     <section id="candidates-view" class="view" hidden>
-      <div class="section-head"><div><h2>Prompts &amp; improvements</h2><p>Review a proposed change, save an edited version, and backtest before marking it approved.</p></div><button id="new-candidate" class="secondary">Paste a candidate</button></div>
-      <div class="inline"><label>Prompt<select id="candidate-select"></select></label><button id="download-prompt" class="secondary">Download TXT</button></div>
-      <div id="candidate-info" class="panel"></div>
+      <div class="section-head"><div><h2>Prompts &amp; improvements</h2><p>Rename or remove a saved version. Edit the text below and save a new version when the wording should change. The repository prompt file stays as it is.</p></div><button id="new-candidate" class="secondary">Paste a new version</button></div>
+      <div class="panel version-panel">
+        <div class="inline"><label>Version<select id="candidate-select"></select></label><button id="download-prompt" class="secondary">Download TXT</button><button type="button" id="use-candidate" class="secondary">Use in evaluation</button></div>
+        <form id="rename-form" hidden>
+          <div class="inline">
+            <label>Version name<input id="version-name" name="name" required maxlength="200" autocomplete="off"></label>
+            <button>Rename</button>
+            <button type="button" id="remove-version" class="danger">Remove version</button>
+          </div>
+        </form>
+        <div id="candidate-info" class="version-meta"></div>
+      </div>
       <form id="candidate-form" class="panel form-grid">
-        <label>New version name<input name="name" required maxlength="200" placeholder="Name this version"></label>
-        <label>Notes<input name="rationale" placeholder="What changed and why"></label>
         <label class="wide">Prompt text<textarea name="prompt" id="candidate-text" rows="16" required spellcheck="false"></textarea></label>
-        <div class="actions wide"><button>Save as new candidate</button><button type="button" id="use-candidate" class="secondary">Use in evaluation</button></div>
+        <label>New version name<input name="name" required maxlength="200" placeholder="Name for this copy"></label>
+        <label>Notes<input name="rationale" placeholder="What changed and why"></label>
+        <div class="actions wide"><button>Save as new version</button><span class="help">Stores the text above as its own version. The selected version is left unchanged.</span></div>
       </form>
       <details id="candidate-diff"><summary>Changes from parent prompt</summary><pre id="diff-text"></pre></details>
-      <form id="review-form" class="panel inline" hidden><label>Review note<input name="note" placeholder="Backtest findings or decision"></label><button name="status" value="approved">Mark approved</button><button name="status" value="rejected" class="danger">Reject</button></form>
-      <h3>Improvement history</h3><div class="table-wrap"><table><thead><tr><th>Created</th><th>Source run</th><th>Model / effort</th><th>Status</th><th>Candidate / details</th></tr></thead><tbody id="improvements-body"></tbody></table></div>
+      <h3>Improvement history</h3><div class="table-wrap"><table><thead><tr><th>Created</th><th>Source run</th><th>Model / effort</th><th>Status</th><th>Version / details</th></tr></thead><tbody id="improvements-body"></tbody></table></div>
     </section>
     <footer>LangGraph workflows · Local experiment history · No automatic publication of prompt changes</footer>
   </main>

@@ -9,6 +9,12 @@ const rate = value => value == null ? '—' : fmt(value * 100, '%');
 const badge = status => `<span class="badge ${esc(status)}">${esc(status.replaceAll('_', ' '))}</span>`;
 const when = value => value ? new Date(value).toLocaleString() : '—';
 const link = (id, run = '') => `/ai-origin/?sample=${encodeURIComponent(id)}${run ? '&run=' + encodeURIComponent(run) : ''}`;
+const datasetLabel = split => ({development:'Development', holdout:'Holdout', test:'Test', all:'All datasets'}[split] || '');
+function runLabel(run) {
+  const dataset = datasetLabel(run.config?.split);
+  if (!dataset || String(run.name || '').endsWith(dataset)) return run.name;
+  return `${run.name} · ${dataset}`;
+}
 
 function notice(message, error = false) {
   $('notice').textContent = message; $('notice').hidden = !message; $('notice').className = error ? 'error' : '';
@@ -57,10 +63,10 @@ async function loadLists() {
   [state.samples, state.runs, state.candidates, state.improvements] = await Promise.all(['samples', 'runs', 'candidates', 'improvements'].map(path => api(path)));
   $('sample-count').textContent = state.samples.length;
   fillSelect('language-filter', [['', 'All languages'], ...[...new Set(state.samples.map(s => s.lang))].sort().map(v => [v,v])]);
-  const prompts = [['repo', 'Current repository prompt'], ...state.candidates.map(c => [c.id, `${c.name} · ${c.status}`])];
+  const prompts = [['repo', 'Repository prompt'], ...state.candidates.map(c => [c.id, c.name])];
   fillSelect('run-prompt', prompts, 'repo'); fillSelect('candidate-select', prompts, 'repo');
-  fillSelect('run-history', [['', 'Choose a run'], ...state.runs.map(r => [r.id, `${when(r.created_at)} · ${r.name} · ${r.status}`])]);
-  fillSelect('reference-run', [['', 'New selection'], ...state.runs.filter(r => !active(r.status)).map(r => [r.id, `${r.name} · ${r.id}`])]);
+  fillSelect('run-history', [['', 'Choose a run'], ...state.runs.map(r => [r.id, `${when(r.created_at)} · ${runLabel(r)} · ${r.status}`])]);
+  fillSelect('reference-run', [['', 'New selection'], ...state.runs.filter(r => !active(r.status)).map(r => [r.id, `${runLabel(r)} · ${r.id}`])]);
   renderSelection(); renderImprovements(); renderTrends(); await searchSamples();
 }
 
@@ -154,7 +160,7 @@ function renderRun() {
   if (!run) return;
   renderTrends(); RunCharts.histogram($('difference-histogram'), run);
   const m = run.metrics.overall, k = m.known_origin;
-  $('run-summary').innerHTML = `<strong>${esc(run.name)}</strong> ${badge(run.status)}<p>${m.completed} completed · ${m.failed} failed · ${m.pending} unfinished · ${esc(run.config.model)} / ${esc(run.config.effort)}</p><small>${esc(run.id)} · ${esc(run.prompt.name)} · SHA ${esc(run.prompt.sha256.slice(0,12))} · ${when(run.created_at)}</small>${run.error ? `<p class="positive">${esc(run.error)}</p>` : ''}${run.comparison ? `<p>Paired backtest: ${run.comparison.paired_samples} samples · MAE change ${fmt(run.comparison.mae_change_pp,' pp')} (negative is better) · ${run.comparison.improved} improved / ${run.comparison.regressed} regressed.</p>` : ''}`;
+  $('run-summary').innerHTML = `<strong>${esc(runLabel(run))}</strong> ${badge(run.status)}<p>${m.completed} completed · ${m.failed} failed · ${m.pending} unfinished · ${esc(run.config.model)} / ${esc(run.config.effort)}</p><small>${esc(run.id)} · ${esc(run.prompt.name)} · SHA ${esc(run.prompt.sha256.slice(0,12))} · ${when(run.created_at)}</small>${run.error ? `<p class="positive">${esc(run.error)}</p>` : ''}${run.comparison ? `<p>Paired backtest: ${run.comparison.paired_samples} samples · MAE change ${fmt(run.comparison.mae_change_pp,' pp')} (negative is better) · ${run.comparison.improved} improved / ${run.comparison.regressed} regressed.</p>` : ''}`;
   const items = [['Mean absolute error',fmt(m.mae_pp,' pp')],['Root mean square error',fmt(m.rmse_pp,' pp')],['Signed bias',fmt(m.bias_pp,' pp')],['Inside manual range',rate(m.within_range)],['Distance outside range',fmt(m.range_distance_pp,' pp')],['Known-origin accuracy',rate(k.accuracy)],['Human false-positive rate',rate(k.false_positive_rate)],['AI recall',rate(k.recall)]];
   $('metrics').innerHTML = items.map(([name,value]) => `<div class="metric"><b>${value}</b><span>${name}</span></div>`).join('');
   $('run-summary').innerHTML += `<p class="help">Manual agreement uses ${m.completed} samples. Known-origin metrics use ${k.count} confirmed human/AI samples at a ${k.threshold}% threshold: TP ${k.tp}, TN ${k.tn}, FP ${k.fp}, FN ${k.fn}. Precision ${rate(k.precision)} · Brier ${k.brier == null ? '—' : k.brier.toFixed(3)}. These estimates are uncalibrated; this sample collection is not a population accuracy claim.</p>`;
@@ -207,21 +213,29 @@ function renderResultRows() {
 async function showCandidate(id) {
   state.candidate = id; $('candidate-select').value = id;
   const form = $('candidate-form'); form.reset();
-  if (id === 'repo') {
+  const saved = id !== 'repo';
+  $('rename-form').hidden = !saved;
+  if (!saved) {
     const prompt = await api('prompt'); $('candidate-text').value = prompt.text;
-    $('candidate-info').textContent = `Current repository prompt · SHA ${prompt.sha256.slice(0,12)}. Save edits as a separate candidate.`;
-    $('candidate-diff').hidden = $('review-form').hidden = true;
+    $('candidate-info').textContent = `Repository prompt · SHA ${prompt.sha256.slice(0,12)}. Rename and remove apply to saved versions. Edits here are saved as a new version.`;
+    $('candidate-diff').hidden = true;
   } else {
     const candidate = await api('candidates/' + id);
     $('candidate-text').value = candidate.prompt;
-    $('candidate-info').innerHTML = `<strong>${esc(candidate.name)}</strong> ${badge(candidate.status)}<p>${esc(candidate.rationale)}</p><small>${esc(candidate.id)} · ${when(candidate.created_at)} · SHA ${esc(candidate.sha256.slice(0,12))}</small>${candidate.reviews.map(r => `<p class="help">${when(r.at)} · ${esc(r.status)}: ${esc(r.note)}</p>`).join('')}`;
+    $('version-name').value = candidate.name;
+    $('candidate-info').innerHTML = `<p>${esc(candidate.rationale || 'No notes on this version.')}</p><small>${esc(candidate.id)} · ${when(candidate.created_at)} · SHA ${esc(candidate.sha256.slice(0,12))}</small>`;
     $('diff-text').textContent = candidate.diff || 'No changes from parent.';
-    $('candidate-diff').hidden = $('review-form').hidden = false;
+    $('candidate-diff').hidden = false;
   }
 }
 
 function renderImprovements() {
-  $('improvements-body').innerHTML = state.improvements.map(j => `<tr><td>${when(j.created_at)}<small>${esc(j.id)}</small></td><td><button class="secondary" data-open-run="${j.config.run_id}">${esc(j.config.run_id)}</button></td><td>${esc(j.config.model)}<small>${esc(j.config.effort)}</small></td><td>${badge(j.status)}</td><td>${j.candidate_id ? `<button class="secondary" data-open-candidate="${j.candidate_id}">Review candidate</button>` : esc(j.error || 'Candidate will appear when complete.')}<details><summary data-job="${j.id}">View step details</summary><pre></pre></details></td></tr>`).join('') || '<tr><td colspan="5" class="empty">No improvement steps yet.</td></tr>';
+  $('improvements-body').innerHTML = state.improvements.map(j => {
+    const version = !j.candidate_id ? esc(j.error || 'The version will appear when complete.')
+      : state.candidates.some(c => c.id === j.candidate_id) ? `<button class="secondary" data-open-candidate="${j.candidate_id}">Open version</button>`
+      : 'Version removed';
+    return `<tr><td>${when(j.created_at)}<small>${esc(j.id)}</small></td><td><button class="secondary" data-open-run="${j.config.run_id}">${esc(j.config.run_id)}</button></td><td>${esc(j.config.model)}<small>${esc(j.config.effort)}</small></td><td>${badge(j.status)}</td><td>${version}<details><summary data-job="${j.id}">View step details</summary><pre></pre></details></td></tr>`;
+  }).join('') || '<tr><td colspan="5" class="empty">No improvement steps yet.</td></tr>';
 }
 
 async function download(path, filename) {
@@ -257,7 +271,7 @@ $('results-table').querySelector('thead').onclick = event => {
 };
 $('run-history').onchange = () => action(() => showRun($('run-history').value));
 $('candidate-select').onchange = () => action(() => showCandidate($('candidate-select').value));
-$('new-candidate').onclick = () => action(async () => { await showCandidate('repo'); $('candidate-form').elements.name.focus(); });
+$('new-candidate').onclick = () => action(async () => { await showCandidate('repo'); $('candidate-text').focus(); });
 $('samples-body').onclick = event => { const id = event.target.closest('[data-edit-sample]')?.dataset.editSample; if (id) action(async () => editSample(await api('samples/' + id))); };
 $('improvements-body').onclick = event => {
   const run = event.target.closest('[data-open-run]')?.dataset.openRun;
@@ -291,10 +305,16 @@ $('candidate-form').onsubmit = event => { event.preventDefault(); action(async (
   const c = await api('candidates',{...readForm(event.target), parent_id:state.candidate});
   await loadLists(); await showCandidate(c.id);
 }, event.submitter); };
-$('review-form').onsubmit = event => { event.preventDefault(); action(async () => {
-  await api('candidates/' + state.candidate + '/review',{...readForm(event.target),status:event.submitter.value});
-  await loadLists(); await showCandidate(state.candidate);
+$('rename-form').onsubmit = event => { event.preventDefault(); action(async () => {
+  await api('candidates/' + state.candidate + '/rename', readForm(event.target));
+  await loadLists();
 }, event.submitter); };
+$('remove-version').onclick = () => action(async () => {
+  const name = $('version-name').value.trim();
+  if (!confirm(`Remove "${name}"? Runs that already used it keep their saved copy of the prompt.`)) return;
+  await api('candidates/' + state.candidate + '/delete', {});
+  await loadLists(); await showCandidate('repo');
+}, $('remove-version'));
 $('use-candidate').onclick = () => { $('run-prompt').value = state.candidate; switchTab('evaluate'); };
 $('download-prompt').onclick = () => action(async () => {
   if (state.candidate === 'repo') { const p = await api('prompt'); const url = URL.createObjectURL(new Blob([p.text])); const a = document.createElement('a'); a.href=url; a.download='ai_origin.txt'; a.click(); URL.revokeObjectURL(url); }

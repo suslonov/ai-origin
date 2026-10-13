@@ -82,6 +82,10 @@ class CandidateInput(InputModel):
     rationale: str = Field(default="", max_length=20_000)
 
 
+class CandidateRename(InputModel):
+    name: str = Field(min_length=1, max_length=200)
+
+
 class CandidateReview(InputModel):
     status: Literal["proposed", "approved", "rejected"]
     note: str = Field(default="", max_length=10_000)

@@ -81,9 +81,10 @@ speaks HTTP. Its normal static-site exposure is unchanged.
 4. **Improve:** choose a source run, another model and optional guidance. The
    graph sends completed **development** examples, their results and metrics to
    the improver. It saves a complete replacement prompt plus rationale.
-5. **Prompts:** inspect the diff against the exact parent prompt, edit/save a new
-   candidate version, or mark a candidate approved/rejected with a review note.
-   **Approval does not overwrite the repository or deploy anything.**
+5. **Prompts:** open a saved version, rename it, or remove it. Inspect the diff
+   against its parent, or edit the text and save a new version. Removing a
+   version leaves past runs untouched, because each run stores its own prompt
+   copy. The repository prompt file is never overwritten.
 6. **Backtest:** select a candidate and choose an earlier run under “Backtest the
    exact samples from”. Its immutable sample snapshots override the split and
    selection settings. Results include a paired comparison with that run.
@@ -163,7 +164,7 @@ prompt and grading code. This lab collects pasted text, not exam API imports.
                                # per-sample requests/responses, errors, metrics
   runs/run_<id>.txt             # convenient copy of the prompt used
   improvements/improvement_<id>.json  # source, settings, request, response, candidate ID
-  candidates/candidate_<id>.json      # prompt, exact parent, rationale, review log
+  candidates/candidate_<id>.json      # prompt, exact parent, name, rationale
   candidates/candidate_<id>.txt       # convenient prompt text
 ```
 
@@ -183,7 +184,7 @@ Start with `schemas.py`, then `graphs.py`:
 - `provider.py`: authentication, model discovery, exact Responses API payloads.
 - `graphs.py`: actual LangGraph nodes and edges for evaluation and improvement.
 - `service.py`: operations shared by graph nodes and HTTP, background worker,
-  snapshots, candidate reviews, CSV export.
+  snapshots, prompt versions, CSV export.
 - `http_api.py`: small HTTP adapter, local/token access and input validation.
 - `dev.py`: standalone HTTP server; Kvasir imports the same HTTP adapter separately.
 

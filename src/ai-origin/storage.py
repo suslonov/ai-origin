@@ -81,6 +81,16 @@ class Store:
         with self.lock:
             return json.loads(self.path(collection, item_id).read_text(encoding="utf-8"))
 
+    def delete(self, collection: str, item_id: str) -> None:
+        with self.lock:
+            path = self.path(collection, item_id)
+            if not path.exists():
+                raise FileNotFoundError(item_id)
+            path.unlink()
+            text = path.with_suffix(".txt")
+            if text.exists():
+                text.unlink()
+
     def list(self, collection: str) -> list[dict[str, Any]]:
         with self.lock:
             items = [json.loads(path.read_text(encoding="utf-8")) for path in (self.root / collection).glob("*.json")]
