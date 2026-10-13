@@ -1,0 +1,199 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3200" height="2360" viewBox="0 0 3200 2360">
+<title>AI-origin lab: evaluation and human-guided prompt improvement</title>
+<desc>Workflow of samples, LangGraph evaluation, run history, high-priority guidance, API improvement, Claude Code or Codex handoffs, and reuse of candidate prompts.</desc>
+<defs><marker id="arrow" markerWidth="11" markerHeight="9" refX="10" refY="4.5" orient="auto"><path d="M0,0 L10,4.5 L0,9 Z" fill="#33465d"></path></marker><marker id="dataarrow" markerWidth="11" markerHeight="9" refX="10" refY="4.5" orient="auto"><path d="M0,0 L10,4.5 L0,9" fill="none" stroke="#63758a" stroke-width="1.4"></path></marker></defs>
+<style>text{font-family:DejaVu Sans,Arial,sans-serif;fill:#192f47}.title{font-size:52px;font-weight:700}.sub{font-size:26px;fill:#5a6d80}.section{font-size:28px;font-weight:700}.kind{font-size:20px;fill:#5a6d80;letter-spacing:1px}.node-title{font-size:28px;font-weight:700}.body{font-size:24px}.edge-label{font-size:22px;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:9px;stroke-linejoin:round}.note{font-size:23px;fill:#5a6d80}</style>
+<rect width="100%" height="100%" fill="white"></rect>
+<text x="80" y="83" class="title" text-anchor="start">AI-origin lab</text>
+<text x="80" y="128" class="sub" text-anchor="start">Evaluation runs → human-guided prompt improvement → reusable candidates → backtesting</text>
+<text x="3120" y="82" class="kind" text-anchor="end">CURRENT WORKFLOW</text>
+<text x="3120" y="120" class="note" text-anchor="end">System-prompt optimization · model weights stay unchanged</text>
+<rect x="80" y="180" width="880" height="830" rx="10" fill="#f2faf9" stroke="#277c80" stroke-width="2"></rect>
+<path d="M80 245H960" stroke="#277c80" stroke-width="2"></path>
+<text x="105" y="223" class="section" text-anchor="start" style="fill:#277c80">01  SAMPLES &amp; RUN SETUP</text>
+<rect x="1060" y="180" width="960" height="830" rx="10" fill="#f3f7fd" stroke="#376ca9" stroke-width="2"></rect>
+<path d="M1060 245H2020" stroke="#376ca9" stroke-width="2"></path>
+<text x="1085" y="223" class="section" text-anchor="start" style="fill:#376ca9">02  EVALUATION · LANGGRAPH</text>
+<rect x="2120" y="180" width="1000" height="830" rx="10" fill="#f3f7fd" stroke="#376ca9" stroke-width="2"></rect>
+<path d="M2120 245H3120" stroke="#376ca9" stroke-width="2"></path>
+<text x="2145" y="223" class="section" text-anchor="start" style="fill:#376ca9">03  RUN HISTORY &amp; HUMAN REVIEW</text>
+<rect x="80" y="1120" width="1220" height="990" rx="10" fill="#fff9f0" stroke="#ab6725" stroke-width="2"></rect>
+<path d="M80 1185H1300" stroke="#ab6725" stroke-width="2"></path>
+<text x="105" y="1163" class="section" text-anchor="start" style="fill:#ab6725">04  IMPROVEMENT SETUP &amp; API ROUTE</text>
+<rect x="1360" y="1120" width="1130" height="990" rx="10" fill="#f8f5fd" stroke="#7553a3" stroke-width="2"></rect>
+<path d="M1360 1185H2490" stroke="#7553a3" stroke-width="2"></path>
+<text x="1385" y="1163" class="section" text-anchor="start" style="fill:#7553a3">05  CLAUDE CODE / CODEX HANDOFF</text>
+<rect x="2580" y="1120" width="540" height="990" rx="10" fill="#f2faf9" stroke="#277c80" stroke-width="2"></rect>
+<path d="M2580 1185H3120" stroke="#277c80" stroke-width="2"></path>
+<text x="2605" y="1163" class="section" text-anchor="start" style="fill:#277c80">06  PROMPT VERSIONS</text>
+<g data-node-width="460"><rect x="120" y="310" width="460" height="370" rx="0" fill="#fff" stroke="#277c80" stroke-width="2.5"></rect>
+<text x="144" y="342" class="kind" text-anchor="start">«input»</text>
+<text x="144" y="383" class="node-title" text-anchor="start">Collect &amp; label samples</text>
+<text x="144" y="426" class="body" text-anchor="start" style="font-size: 21.0909px;">Text + language + manual estimate</text>
+<text x="144" y="460" class="body" text-anchor="start" style="font-size: 21.0909px;">Acceptable probability range</text>
+<text x="144" y="494" class="body" text-anchor="start" style="font-size: 21.0909px;">Known origin, notes, assignment</text>
+<text x="144" y="528" class="body" text-anchor="start" style="font-size: 21.0909px;">Development / Holdout / Test</text>
+<text x="144" y="562" class="body" text-anchor="start" style="font-size: 21.0909px;">Materials: use / unavailable / irrelevant</text>
+<text x="144" y="596" class="body" text-anchor="start" style="font-size: 21.0909px;">Manual labels hidden from evaluator</text>
+</g>
+<g data-node-width="310"><rect x="610" y="310" width="310" height="260" rx="0" fill="#fff" stroke="#277c80" stroke-width="2.5"></rect>
+<text x="634" y="342" class="kind" text-anchor="start">«input»</text>
+<text x="634" y="383" class="node-title" text-anchor="start">Choose prompt</text>
+<text x="634" y="426" class="body" text-anchor="start" style="font-size: 22.6505px;">Repository ai_origin.txt</text>
+<text x="634" y="460" class="body" text-anchor="start" style="font-size: 22.6505px;">or a saved candidate</text>
+<text x="634" y="494" class="body" text-anchor="start" style="font-size: 22.6505px;">Versioned prompt text</text>
+</g>
+<g data-node-width="700"><rect x="170" y="745" width="700" height="200" rx="12" fill="#fff" stroke="#277c80" stroke-width="2.5"></rect>
+<text x="194" y="777" class="kind" text-anchor="start">«action»</text>
+<text x="194" y="818" class="node-title" text-anchor="start">Configure &amp; start evaluation</text>
+<text x="194" y="861" class="body" text-anchor="start">Model + effort · dataset · sample selection strategy</text>
+<text x="194" y="895" class="body" text-anchor="start">All / balanced % / manual; or exact-sample backtest</text>
+<text x="194" y="929" class="body" text-anchor="start">Default model: gpt-6-luna</text>
+</g>
+<path d="M350,680 L350,745" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<path d="M770,570 L770,745" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<g data-node-width="860"><rect x="1110" y="305" width="860" height="155" rx="0" fill="#fff" stroke="#376ca9" stroke-width="2.5"></rect>
+<text x="1134" y="337" class="kind" text-anchor="start">«snapshot»</text>
+<text x="1134" y="378" class="node-title" text-anchor="start">Create run &amp; freeze inputs</text>
+<text x="1134" y="421" class="body" text-anchor="start">Save prompt, sample revisions, settings and random seed</text>
+<text x="1134" y="455" class="body" text-anchor="start">Queue background job; keep the dashboard responsive</text>
+</g>
+<path d="M870,845 L1010,845 L1010,384 L1110,384" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<text x="895" y="826" class="edge-label" text-anchor="start">start run</text>
+<path d="M1390,565 L1535,490 L1680,565 L1535,640 Z" fill="white" stroke="#376ca9" stroke-width="2.5"></path>
+<text x="1535" y="560" class="body" text-anchor="middle">Next sample</text>
+<text x="1535" y="591" class="body" text-anchor="middle">available?</text>
+<path d="M1535,460 L1535,490" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<g data-node-width="490"><rect x="1105" y="730" width="490" height="210" rx="12" fill="#fff" stroke="#376ca9" stroke-width="2.5"></rect>
+<text x="1129" y="762" class="kind" text-anchor="start">«action»</text>
+<text x="1129" y="803" class="node-title" text-anchor="start">Evaluate one sample</text>
+<text x="1129" y="846" class="body" text-anchor="start">OpenAI model + selected prompt</text>
+<text x="1129" y="880" class="body" text-anchor="start">Apply language &amp; materials mode</text>
+<text x="1129" y="914" class="body" text-anchor="start">Receive probability + explanation</text>
+</g>
+<g data-node-width="300"><rect x="1670" y="730" width="300" height="210" rx="12" fill="#fff" stroke="#376ca9" stroke-width="2.5"></rect>
+<text x="1694" y="762" class="kind" text-anchor="start">«action»</text>
+<text x="1694" y="803" class="node-title" text-anchor="start">Validate &amp; save</text>
+<text x="1694" y="846" class="body" text-anchor="start">Result or error</text>
+<text x="1694" y="880" class="body" text-anchor="start">Usage + timing</text>
+<text x="1694" y="914" class="body" text-anchor="start">Update metrics</text>
+</g>
+<path d="M1535,640 L1535,685 L1350,685 L1350,730" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<text x="1365" y="675" class="edge-label" text-anchor="start">[yes]</text>
+<path d="M1595,835 L1670,835" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<path d="M1820,940 L1820,965 L1080,965 L1080,565 L1390,565" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<text x="1110" y="545" class="edge-label" text-anchor="start">next sample</text>
+<text x="1110" y="996" class="note" text-anchor="start">Save after each sample · stop after current call · preserve interrupted runs</text>
+<g data-node-width="880"><rect x="2180" y="310" width="880" height="200" rx="0" fill="#fff" stroke="#376ca9" stroke-width="2.5"></rect>
+<text x="2204" y="342" class="kind" text-anchor="start">«history»</text>
+<text x="2204" y="383" class="node-title" text-anchor="start">Open any completed run</text>
+<text x="2204" y="426" class="body" text-anchor="start">Immutable run history + exact prompt / sample snapshots</text>
+<text x="2204" y="460" class="body" text-anchor="start">Review results or re-enter improvement with new guidance</text>
+<text x="2204" y="494" class="body" text-anchor="start">Earlier runs and candidates remain available</text>
+</g>
+<path d="M1680,565 L2070,565 L2070,407 L2180,407" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<text x="1740" y="547" class="edge-label" text-anchor="start">[no / stopped] finish</text>
+<g data-node-width="880"><rect x="2180" y="595" width="880" height="310" rx="12" fill="#fff" stroke="#376ca9" stroke-width="2.5"></rect>
+<text x="2204" y="627" class="kind" text-anchor="start">«action»</text>
+<text x="2204" y="668" class="node-title" text-anchor="start">Inspect results &amp; compare</text>
+<text x="2204" y="711" class="body" text-anchor="start">Sortable table: text · language · manual / model · difference</text>
+<text x="2204" y="745" class="body" text-anchor="start">Difference histogram + MAE / RMSE / signed-bias trends</text>
+<text x="2204" y="779" class="body" text-anchor="start">Agreement metrics + known-origin classification metrics</text>
+<text x="2204" y="813" class="body" text-anchor="start">Filter by dataset · read explanations · export CSV</text>
+<text x="2204" y="847" class="body" text-anchor="start">Paired backtests compare the same saved samples</text>
+</g>
+<path d="M2620,510 L2620,595" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<path d="M2620,905 L2620,1055 L690,1055 L690,1230" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<text x="1180" y="1040" class="edge-label" text-anchor="start">select source run → new improvement attempt</text>
+<g data-node-width="1080"><rect x="150" y="1230" width="1080" height="210" rx="12" fill="#fff" stroke="#ab6725" stroke-width="2.5"></rect>
+<text x="174" y="1262" class="kind" text-anchor="start">«action»</text>
+<text x="174" y="1303" class="node-title" text-anchor="start">Set improvement objective</text>
+<text x="174" y="1346" class="body" text-anchor="start">New candidate name + HIGH-PRIORITY REVIEWER GUIDANCE</text>
+<text x="174" y="1380" class="body" text-anchor="start">Scope: Development only, or all successful samples from the run</text>
+<text x="174" y="1414" class="body" text-anchor="start">Including Test / Holdout makes them optimization evidence</text>
+</g>
+<path d="M525,1570 L660,1495 L795,1570 L660,1645 Z" fill="white" stroke="#376ca9" stroke-width="2.5"></path>
+<text x="660" y="1565" class="body" text-anchor="middle">Improvement</text>
+<text x="660" y="1596" class="body" text-anchor="middle">route?</text>
+<path d="M660,1440 L660,1495" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<g data-node-width="510"><rect x="150" y="1760" width="510" height="210" rx="12" fill="#fff" stroke="#ab6725" stroke-width="2.5"></rect>
+<text x="174" y="1792" class="kind" text-anchor="start">«action»</text>
+<text x="174" y="1833" class="node-title" text-anchor="start" style="font-size: 27.5839px;">Generate through OpenAI API</text>
+<text x="174" y="1876" class="body" text-anchor="start" style="font-size: 23.862px;">Choose improvement model + effort</text>
+<text x="174" y="1910" class="body" text-anchor="start" style="font-size: 23.862px;">LangGraph: prepare → propose → save</text>
+<text x="174" y="1944" class="body" text-anchor="start" style="font-size: 23.862px;">Guidance takes priority over heuristics</text>
+</g>
+<path d="M660,1645 L660,1700 L405,1700 L405,1760" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<text x="440" y="1690" class="edge-label" text-anchor="start">[API]</text>
+<text x="730" y="1800" class="note" text-anchor="start">Every attempt is independent.</text>
+<text x="730" y="1840" class="note" text-anchor="start">Use new guidance to explore</text>
+<text x="730" y="1877" class="note" text-anchor="start">another prompt revision.</text>
+<text x="150" y="2055" class="note" text-anchor="start">Output: complete replacement prompt + rationale</text>
+<g data-node-width="1020"><rect x="1410" y="1230" width="1020" height="250" rx="0" fill="#fff" stroke="#7553a3" stroke-width="2.5"></rect>
+<text x="1434" y="1262" class="kind" text-anchor="start">«files»</text>
+<text x="1434" y="1303" class="node-title" text-anchor="start">Prepare coder handoff · no model call</text>
+<text x="1434" y="1346" class="body" text-anchor="start">handoffs/&lt;improvement-id&gt;/instructions.md</text>
+<text x="1434" y="1380" class="body" text-anchor="start">Frozen parent-prompt.txt + evidence.json + sample JSON files</text>
+<text x="1434" y="1414" class="body" text-anchor="start">Instructions include every input path and the exact output path</text>
+<text x="1434" y="1448" class="body" text-anchor="start">High-priority guidance + required output contract</text>
+</g>
+<path d="M795,1570 L1330,1570 L1330,1360 L1410,1360" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<text x="895" y="1555" class="edge-label" text-anchor="start">[Claude Code / Codex]</text>
+<g data-node-width="1020"><rect x="1410" y="1570" width="1020" height="180" rx="12" fill="#fff" stroke="#7553a3" stroke-width="2.5"></rect>
+<text x="1434" y="1602" class="kind" text-anchor="start">«action»</text>
+<text x="1434" y="1643" class="node-title" text-anchor="start">User gives the short prompt to the coder</text>
+<text x="1434" y="1686" class="body" text-anchor="start">“Read &lt;instructions.md&gt; and write the complete prompt to &lt;output.txt&gt;.”</text>
+<text x="1434" y="1720" class="body" text-anchor="start">Claude Code / Codex reads the bundle and authors the new prompt</text>
+</g>
+<path d="M1920,1480 L1920,1570" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<text x="1945" y="1522" class="edge-label" text-anchor="start">manual handoff</text>
+<g data-node-width="1020"><rect x="1410" y="1830" width="1020" height="160" rx="0" fill="#fff" stroke="#7553a3" stroke-width="2.5"></rect>
+<text x="1434" y="1862" class="kind" text-anchor="start">«file»</text>
+<text x="1434" y="1903" class="node-title" text-anchor="start">Coder fills the registered output TXT</text>
+<text x="1434" y="1946" class="body" text-anchor="start">Complete UTF-8 prompt · no JSON wrapper or code fences</text>
+<text x="1434" y="1980" class="body" text-anchor="start">Write atomically; leave samples and repository files unchanged</text>
+</g>
+<path d="M1920,1750 L1920,1830" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<g data-node-width="440"><rect x="2630" y="1230" width="440" height="210" rx="0" fill="#fff" stroke="#277c80" stroke-width="2.5"></rect>
+<text x="2654" y="1262" class="kind" text-anchor="start">«version»</text>
+<text x="2654" y="1303" class="node-title" text-anchor="start">Register candidate</text>
+<text x="2654" y="1346" class="body" text-anchor="start">Create candidate metadata</text>
+<text x="2654" y="1380" class="body" text-anchor="start">Prepare empty output TXT</text>
+<text x="2654" y="1414" class="body" text-anchor="start">Status: awaiting_external</text>
+</g>
+<path d="M2430,1350 L2630,1350" fill="none" stroke="#63758a" stroke-width="3" stroke-dasharray="10 7" marker-end="url(#dataarrow)"></path>
+<text x="2460" y="1333" class="edge-label" text-anchor="start">register</text>
+<g data-node-width="440"><rect x="2630" y="1530" width="440" height="230" rx="12" fill="#fff" stroke="#277c80" stroke-width="2.5"></rect>
+<text x="2654" y="1562" class="kind" text-anchor="start">«action»</text>
+<text x="2654" y="1603" class="node-title" text-anchor="start">Import output once</text>
+<text x="2654" y="1646" class="body" text-anchor="start">Load output / open version / run</text>
+<text x="2654" y="1680" class="body" text-anchor="start">Require valid, nonempty text</text>
+<text x="2654" y="1714" class="body" text-anchor="start">Freeze JSON + hash + parent</text>
+<text x="2654" y="1748" class="body" text-anchor="start">Empty file stays pending</text>
+</g>
+<path d="M2850,1440 L2850,1530" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<text x="2864" y="1486" class="edge-label" text-anchor="start">[file ready]</text>
+<path d="M2430,1910 L2535,1910 L2535,1650 L2630,1650" fill="none" stroke="#63758a" stroke-width="3" stroke-dasharray="10 7" marker-end="url(#dataarrow)"></path>
+<text x="2480" y="1805" class="edge-label" text-anchor="start">output</text>
+<g data-node-width="440"><rect x="2630" y="1880" width="440" height="190" rx="12" fill="#fff" stroke="#277c80" stroke-width="2.5"></rect>
+<text x="2654" y="1912" class="kind" text-anchor="start">«action»</text>
+<text x="2654" y="1953" class="node-title" text-anchor="start">Review &amp; use candidate</text>
+<text x="2654" y="1996" class="body" text-anchor="start">Inspect changes from parent</text>
+<text x="2654" y="2030" class="body" text-anchor="start">Select for the next evaluation</text>
+<text x="2654" y="2064" class="body" text-anchor="start">Or run a paired backtest</text>
+</g>
+<path d="M2850,1760 L2850,1880" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<path d="M405,1970 L405,2005 L2510,2005 L2510,1975 L2630,1975" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<text x="1450" y="2040" class="edge-label" text-anchor="start">API-generated candidate</text>
+<path d="M2850,2070 L2850,2170 L35,2170 L35,845 L170,845" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<text x="1100" y="2153" class="edge-label" text-anchor="start">REPEAT: use candidate → evaluate / backtest → inspect → improve again</text>
+<path d="M80 2240H3120" stroke="#d9e1e9" stroke-width="2"></path>
+<text x="80" y="2286" class="kind" text-anchor="start">LOCAL PERSISTENCE</text>
+<text x="80" y="2325" class="body" text-anchor="start">~/ai-origin/  ·  samples/  ·  runs/  ·  improvements/  ·  candidates/  ·  handoffs/</text>
+<text x="1920" y="2286" class="kind" text-anchor="start">UML-STYLE NOTATION</text>
+<path d="M1920,2320 L2000,2320" fill="none" stroke="#33465d" stroke-width="3" marker-end="url(#arrow)"></path>
+<text x="2020" y="2327" class="note" text-anchor="start">Control flow</text>
+<path d="M2250,2320 L2330,2320" fill="none" stroke="#63758a" stroke-width="3" stroke-dasharray="10 7" marker-end="url(#dataarrow)"></path>
+<text x="2350" y="2327" class="note" text-anchor="start">File / data link</text>
+<text x="3120" y="2286" class="note" text-anchor="end">No automatic production-prompt replacement</text>
+</svg>
