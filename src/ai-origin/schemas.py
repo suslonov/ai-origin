@@ -69,6 +69,8 @@ class RunInput(ModelInput):
 
 
 class ImprovementInput(ModelInput):
+    runner: Literal["api", "claude_code", "codex"] = "api"
+    sample_scope: Literal["development", "all"] = "development"
     run_id: str
     name: str = Field(min_length=1, max_length=200)
     guidance: str = Field(default="", max_length=10_000)

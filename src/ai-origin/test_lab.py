@@ -299,3 +299,83 @@ def test_model_discovery_keeps_supported_families(monkeypatch: pytest.MonkeyPatc
     ids = ["o3", "gpt-4o-mini", "ft:gpt-4o:org:custom:id", "gpt-4.1", "gpt-5-mini", "gpt-6-astra"]
     monkeypatch.setattr(provider, "_request", lambda *args: {"data": [{"id": model} for model in ids]})
     assert {m["id"] for m in provider.models()} == {"gpt-4.1", "gpt-5-mini", "gpt-6-astra"}
+
+
+@pytest.mark.parametrize("runner", ["codex", "claude_code"])
+def test_coder_handoff_snapshots_and_import(lab: Service, runner: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    original = lab.save_sample(sample(text="ORIGINAL DEVELOPMENT"))
+    lab.save_sample(sample(text="HOLDOUT NOT INCLUDED", split="holdout"))
+    run = wait_run(lab, split="all")
+    lab.save_sample(sample(text="EDITED LATER"), original["id"], original["revision"])
+    requests_before = len(lab.provider.requests)
+    def no_provider_validation(config):
+        pytest.fail("A coder handoff must not need API credentials or model discovery")
+    with monkeypatch.context() as m:
+        m.setattr(lab.provider, "validate_model", no_provider_validation)
+        job = lab.start_improvement(ImprovementInput(runner=runner, run_id=run["id"], name="Coder candidate",
+                                                  guidance="Replace the fixed scoring table with evidence-based estimates."))
+    assert job["status"] == "awaiting_external"
+    assert len(lab.provider.requests) == requests_before
+    instructions = Path(job["instructions_path"])
+    output = Path(job["output_path"])
+    assert instructions.is_file() and output.read_text() == ""
+    assert str(instructions) in job["launch_prompt"] and str(output) in job["launch_prompt"]
+    document = instructions.read_text()
+    assert "REVIEWER GUIDANCE (high priority)" in document and "Replace the fixed scoring table" in document
+    evidence = (instructions.parent / "evidence.json").read_text()
+    assert "ORIGINAL DEVELOPMENT" in evidence and "EDITED LATER" not in evidence and "HOLDOUT NOT INCLUDED" not in evidence
+    snapshot = instructions.parent / "samples" / (original["id"] + ".json")
+    assert str(snapshot) in document and json.loads(snapshot.read_text())["text"] == "ORIGINAL DEVELOPMENT"
+    assert lab.candidate_detail(job["candidate_id"])["status"] == "awaiting_external"
+    with pytest.raises(ValueError, match="awaiting coder"):
+        lab.start_run(RunInput(model="test-model", prompt_id=job["candidate_id"]))
+    output.write_text("A new complete prompt from the coder.")
+    imported = lab.candidate_detail(job["candidate_id"])
+    assert imported["status"] == "proposed" and imported["sha256"]
+    assert imported["parent_prompt"] == run["prompt"]["text"]
+    assert lab.store.get("improvements", job["id"])["status"] == "completed"
+    next_run = wait_run(lab, prompt_id=job["candidate_id"])
+    assert next_run["prompt"]["text"] == "A new complete prompt from the coder."
+    output.write_text("Later accidental edit")
+    assert lab.prompt(job["candidate_id"])["text"] == next_run["prompt"]["text"]
+    # Another improvement from this historical run gets fresh files and IDs.
+    second = lab.start_improvement(ImprovementInput(runner=runner, run_id=run["id"], name="Another", guidance="New guidance"))
+    assert second["candidate_id"] != job["candidate_id"] and second["output_path"] != job["output_path"]
+    assert Path(second["output_path"]).read_text() == ""
+
+
+def test_api_guidance_priority_and_intentional_test_scope(lab: Service) -> None:
+    lab.save_sample(sample(text="DELIBERATE TEST", split="test"))
+    run = wait_run(lab, split="test")
+    for guidance in ["Prioritize exact quotations.", "Reduce false positives."]:
+        lab.provider.replies = [{"prompt": "A complete replacement policy", "rationale": "Requested adjustment"}]
+        job = lab.start_improvement(ImprovementInput(model="test-model", run_id=run["id"], name=guidance,
+                                                   guidance=guidance, sample_scope="all"))
+        lab.queue.join()
+        request = lab.provider.requests[-1]
+        assert guidance in request["instructions"]
+        assert request["instructions"].index(guidance) < request["instructions"].index("GENERAL IMPROVEMENT REQUIREMENTS")
+        assert "overrides conflicting" in request["instructions"]
+        assert "DELIBERATE TEST" in request["input"][0]["content"]
+        assert lab.store.get("improvements", job["id"])["status"] == "completed"
+    assert len(lab.store.list("candidates")) == 2
+
+
+def test_external_empty_survives_restart_and_imports_on_run(tmp_path: Path) -> None:
+    lab = Service(tmp_path / "data", FakeProvider())
+    lab.save_sample(sample(split="test"))
+    run = wait_run(lab, split="test")
+    job = lab.start_improvement(ImprovementInput(runner="codex", sample_scope="all", run_id=run["id"], name="Restart test"))
+    lab.close()
+    reopened = Service(tmp_path / "data", FakeProvider())
+    try:
+        assert reopened.store.get("improvements", job["id"])["status"] == "awaiting_external"
+        output = Path(job["output_path"])
+        output.write_text('```text\nNot a plain prompt\n```')
+        with pytest.raises(ValueError, match="code fences"):
+            reopened.prompt(job["candidate_id"])
+        output.write_text("Ready after restart")
+        rerun = wait_run(reopened, split="test", prompt_id=job["candidate_id"])
+        assert rerun["prompt"]["text"] == "Ready after restart"
+    finally:
+        reopened.close()

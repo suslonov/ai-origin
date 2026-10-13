@@ -59,15 +59,19 @@
       <section class="panel" aria-labelledby="histogram-title"><h3 id="histogram-title">Difference distribution</h3><div id="difference-histogram"><p class="help">Select a run to see its differences.</p></div></section>
       <div class="table-wrap"><table id="results-table"><thead><tr><th scope="col" aria-sort="none"><button type="button" class="sort-button" data-result-sort="text">Text ID / link<span class="sort-direction" aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-button" data-result-sort="lang">Lang<span class="sort-direction" aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-button" data-result-sort="manual">Manual evaluation<span class="sort-direction" aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-button" data-result-sort="model">Model evaluation<span class="sort-direction" aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-button" data-result-sort="difference">Difference<span class="sort-direction" aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-button" data-result-sort="result">Result / explanation<span class="sort-direction" aria-hidden="true">↕</span></button></th></tr></thead><tbody id="results-body"></tbody></table></div>
       <div class="panel" id="improve-panel" hidden>
-        <h3>Improve this run's prompt</h3><p>Only completed development samples are sent to the improver. The result is saved as a new version; the repository prompt is never changed.</p>
+        <h3>Improve this run's prompt</h3><p>Create another candidate from this run with fresh guidance, using the API or a local AI coder. Each attempt creates a separate version.</p>
         <form id="improve-form" class="form-grid">
           <label>Candidate name<input name="name" required maxlength="200" placeholder="Reduce false positives on short answers"></label>
+          <label>Run improvement in<select name="runner" id="improve-runner"><option value="api">OpenAI API</option><option value="claude_code">Claude Code</option><option value="codex">Codex</option></select></label>
+          <label>Samples for improvement<select name="sample_scope" id="improve-scope"><option value="development">Development samples only</option><option value="all">All successful samples from this run</option></select></label>
+          <p id="improve-scope-note" class="help wide"></p>
           <label>Improvement model<select name="model" id="improve-model" required></select></label>
           <label>Reasoning effort<select name="effort" id="improve-effort"></select></label>
           <label>Output token limit<input name="max_output_tokens" type="number" min="512" max="65536" value="16384" required></label>
-          <label class="wide">Optional guidance<textarea name="guidance" rows="3" placeholder="Describe a recurring failure or the tradeoff you want to improve."></textarea></label>
-          <div class="wide actions"><button>Generate candidate</button><span class="help">One improvement step. Backtest the saved version separately.</span></div>
+          <label class="wide">Reviewer guidance — high priority<textarea name="guidance" rows="3" placeholder="Describe a recurring failure or the tradeoff you want to improve."></textarea></label>
+          <div class="wide actions"><button id="generate-candidate">Generate candidate</button><span class="help">API generation runs here. Claude Code/Codex prepares files and a prompt for you to paste into the coder.</span></div>
         </form>
+        <div id="coder-handoff" class="panel" hidden><h3>Coder handoff ready</h3><p>Give this prompt to the coder on the same computer. After it writes the output file, load the version below.</p><pre id="coder-prompt"></pre><p id="coder-paths" class="help"></p><button type="button" id="load-coder-output" class="secondary">Load coder output</button><p id="coder-status" role="status"></p></div>
       </div>
     </section>
 
@@ -106,7 +110,7 @@
       <label>Manual AI probability (%)<input name="manual_probability" type="number" min="0" max="100" step="any" required></label>
       <label>Acceptable range, lower (%)<input name="manual_low" type="number" min="0" max="100" step="any" required></label>
       <label>Acceptable range, upper (%)<input name="manual_high" type="number" min="0" max="100" step="any" required></label>
-      <label>Dataset<select name="split"><option value="development">Development — may inform improvements</option><option value="holdout">Holdout — never sent to improver</option><option value="test">Test — intentional test samples, never sent to improver</option></select></label>
+      <label>Dataset<select name="split"><option value="development">Development — may inform improvements</option><option value="holdout">Holdout — excluded from improvement by default</option><option value="test">Test — intentional test samples, excluded by default</option></select></label>
       <label class="wide">Student text<textarea name="text" dir="auto" rows="10" required maxlength="200000"></textarea></label>
       <label class="wide">Label notes / evidence of origin<textarea name="notes" rows="2" placeholder="Why this judgment, or how the origin is known. Hidden from the evaluator."></textarea></label>
       <label>Course materials<select name="materials_mode" id="materials-mode"><option value="irrelevant">Irrelevant</option><option value="unavailable">Unavailable</option><option value="use">Use supplied materials</option></select></label>

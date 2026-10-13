@@ -20,7 +20,7 @@ from pathlib import Path
 
 from langsmith import tracing_context
 
-from graphs import build_evaluation_graph, build_improvement_graph
+from graphs import build_evaluation_graph, build_improvement_graph, improvement_rows
 from metrics import comparison, grouped_metrics, select_samples
 from provider import OpenAIProvider
 from schemas import CandidateInput, CandidateRename, CandidateReview, ImprovementInput, RunInput, SampleInput
@@ -62,7 +62,10 @@ class Service:
             # local edit to the actual evaluation prompt is used immediately.
             text = REPO_PROMPT.read_text(encoding="utf-8")
             return {"id": "repo", "name": "Current repository prompt", "text": text, "sha256": digest(text)}
-        candidate = self.store.get("candidates", prompt_id)
+        from external import import_external
+        candidate = import_external(self, prompt_id)
+        if not candidate["prompt"].strip():
+            raise ValueError("This candidate is awaiting coder output. Fill its output TXT file before evaluation.")
         return {"id": candidate["id"], "name": candidate["name"], "text": candidate["prompt"], "sha256": candidate["sha256"]}
 
     def save_sample(self, data: SampleInput, sample_id: str | None = None, revision: int | None = None) -> dict:
@@ -111,7 +114,8 @@ class Service:
             return candidate
 
     def candidate_detail(self, candidate_id: str) -> dict:
-        candidate = self.store.get("candidates", candidate_id)
+        from external import import_external
+        candidate = import_external(self, candidate_id)
         candidate["diff"] = "".join(difflib.unified_diff(
             candidate["parent_prompt"].splitlines(True), candidate["prompt"].splitlines(True),
             fromfile="Parent prompt", tofile=candidate["name"]))
@@ -147,12 +151,16 @@ class Service:
         return run
 
     def start_improvement(self, config: ImprovementInput) -> dict:
-        self.provider.validate_model(config)
+        if config.runner == "api":
+            self.provider.validate_model(config)
         run = self.store.get("runs", config.run_id)
         if run["status"] in ACTIVE:
             raise ValueError("Wait for the source run to finish.")
-        if not any(r["status"] == "completed" and r["sample"]["split"] == "development" for r in run["results"]):
-            raise ValueError("Improvement needs completed development samples; holdout and test samples are never sent to the improver.")
+        if not improvement_rows(run, config.sample_scope):
+            raise ValueError("No completed samples in this scope. Choose all successful samples to include non-development results.")
+        if config.runner != "api":
+            from external import prepare_handoff
+            return prepare_handoff(self, config, run)
         job = {"id": new_id("improvement"), "created_at": now(), "status": "queued",
                "config": config.model_dump(), "trace_id": str(uuid.uuid4())}
         self.store.write("improvements", job)

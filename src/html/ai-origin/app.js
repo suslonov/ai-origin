@@ -63,7 +63,7 @@ async function loadLists() {
   [state.samples, state.runs, state.candidates, state.improvements] = await Promise.all(['samples', 'runs', 'candidates', 'improvements'].map(path => api(path)));
   $('sample-count').textContent = state.samples.length;
   fillSelect('language-filter', [['', 'All languages'], ...[...new Set(state.samples.map(s => s.lang))].sort().map(v => [v,v])]);
-  const prompts = [['repo', 'Repository prompt'], ...state.candidates.map(c => [c.id, c.name])];
+  const prompts = [['repo', 'Repository prompt'], ...state.candidates.map(c => [c.id, c.name + (c.status === 'awaiting_external' ? ' · waiting for coder' : '')])];
   fillSelect('run-prompt', prompts, 'repo'); fillSelect('candidate-select', prompts, 'repo');
   fillSelect('run-history', [['', 'Choose a run'], ...state.runs.map(r => [r.id, `${when(r.created_at)} · ${runLabel(r)} · ${r.status}`])]);
   fillSelect('reference-run', [['', 'New selection'], ...state.runs.filter(r => !active(r.status)).map(r => [r.id, `${runLabel(r)} · ${r.id}`])]);
@@ -144,8 +144,15 @@ function readForm(form, numeric = []) {
 }
 
 async function showRun(id) {
-  if (!id) { state.run = null; return; }
-  state.run = await api('runs/' + id); $('run-history').value = id;
+  if (!id) { state.run = null; $('improve-panel').hidden = true; return; }
+  const changed = state.run?.id !== id;
+  state.run = await api('runs/' + id);
+  if (changed) {
+    const hasDevelopment = state.run.results.some(r => r.status === 'completed' && r.sample.split === 'development');
+    $('improve-scope').value = hasDevelopment ? 'development' : 'all';
+    $('coder-handoff').hidden = true;
+  }
+  $('run-history').value = id;
   renderRun();
 }
 
@@ -168,7 +175,8 @@ function renderRun() {
   $('grouped-metrics').innerHTML = `<table><thead><tr><th>Group</th><th>Value</th><th>Completed / total</th><th>MAE</th><th>Within range</th><th>Human FPR</th></tr></thead><tbody>${['lang','materials_mode','split'].flatMap(field => Object.entries(run.metrics[field]).map(([name,v]) => `<tr><td>${esc(field)}</td><td>${esc(name)}</td><td>${v.completed} / ${v.total}</td><td>${fmt(v.mae_pp,' pp')}</td><td>${rate(v.within_range)}</td><td>${rate(v.known_origin.false_positive_rate)}</td></tr>`)).join('')}</tbody></table>`;
   renderResultRows();
   $('cancel-run').hidden = !active(run.status);
-  $('improve-panel').hidden = active(run.status) || !run.results.some(r => r.status === 'completed' && r.sample.split === 'development');
+  $('improve-panel').hidden = active(run.status);
+  configureImprovement();
 }
 
 // Table ordering is a view preference: never reorder the stored run snapshots.
@@ -221,12 +229,36 @@ async function showCandidate(id) {
     $('candidate-diff').hidden = true;
   } else {
     const candidate = await api('candidates/' + id);
+    if (state.candidates.find(c => c.id === id)?.status === 'awaiting_external' && candidate.status !== 'awaiting_external') await loadLists();
     $('candidate-text').value = candidate.prompt;
     $('version-name').value = candidate.name;
-    $('candidate-info').innerHTML = `<p>${esc(candidate.rationale || 'No notes on this version.')}</p><small>${esc(candidate.id)} · ${when(candidate.created_at)} · SHA ${esc(candidate.sha256.slice(0,12))}</small>`;
+    $('candidate-info').innerHTML = `<p>${esc(candidate.rationale || 'No notes on this version.')}</p><small>${esc(candidate.id)} · ${when(candidate.created_at)} · SHA ${esc(candidate.sha256.slice(0,12))}</small>${candidate.external ? `<p>${esc(candidate.status === 'awaiting_external' ? 'Waiting for coder output. Open this version again after the file is ready.' : 'Coder output imported.')}<br>${esc(candidate.external.output_path)}</p><details><summary>Coder prompt</summary><pre>${esc(candidate.external.launch_prompt)}</pre></details>` : ''}`;
     $('diff-text').textContent = candidate.diff || 'No changes from parent.';
     $('candidate-diff').hidden = false;
   }
+}
+
+function configureImprovement() {
+  const external = $('improve-runner').value !== 'api';
+  for (const name of ['model','effort','max_output_tokens']) {
+    const input = $('improve-form').elements[name];
+    input.disabled = external; input.closest('label').hidden = external;
+  }
+  const rows = (state.run?.results || []).filter(r => r.status === 'completed' &&
+    ($('improve-scope').value === 'all' || r.sample.split === 'development'));
+  $('generate-candidate').disabled = !rows.length;
+  $('generate-candidate').textContent = external ? 'Prepare coder handoff' : 'Generate candidate';
+  const reserved = rows.some(r => r.sample.split !== 'development');
+  $('improve-scope-note').textContent = `${rows.length} successful samples selected. ` +
+    (reserved ? 'Test/Holdout examples will inform this improvement; they are no longer independent validation for this candidate.' : 'Test and Holdout samples remain excluded.');
+}
+
+function displayHandoff(job) {
+  $('coder-handoff').hidden = false;
+  $('coder-prompt').textContent = job.launch_prompt;
+  $('coder-paths').textContent = `Instructions: ${job.instructions_path}\nOutput: ${job.output_path}`;
+  $('load-coder-output').dataset.candidate = job.candidate_id;
+  $('coder-status').textContent = 'Version registered; waiting for the coder to fill its output file.';
 }
 
 function renderImprovements() {
@@ -234,7 +266,7 @@ function renderImprovements() {
     const version = !j.candidate_id ? esc(j.error || 'The version will appear when complete.')
       : state.candidates.some(c => c.id === j.candidate_id) ? `<button class="secondary" data-open-candidate="${j.candidate_id}">Open version</button>`
       : 'Version removed';
-    return `<tr><td>${when(j.created_at)}<small>${esc(j.id)}</small></td><td><button class="secondary" data-open-run="${j.config.run_id}">${esc(j.config.run_id)}</button></td><td>${esc(j.config.model)}<small>${esc(j.config.effort)}</small></td><td>${badge(j.status)}</td><td>${version}<details><summary data-job="${j.id}">View step details</summary><pre></pre></details></td></tr>`;
+    return `<tr><td>${when(j.created_at)}<small>${esc(j.id)}</small></td><td><button class="secondary" data-open-run="${j.config.run_id}">${esc(j.config.run_id)}</button></td><td>${esc(j.config.runner && j.config.runner !== 'api' ? (j.config.runner === 'codex' ? 'Codex' : 'Claude Code') : j.config.model)}<small>${esc(j.config.runner && j.config.runner !== 'api' ? 'Manual handoff' : j.config.effort)}</small></td><td>${badge(j.status)}</td><td>${version}${j.launch_prompt ? `<details><summary>Coder prompt</summary><pre>${esc(j.launch_prompt)}</pre></details>` : ''}<details><summary data-job="${j.id}">View step details</summary><pre></pre></details></td></tr>`;
   }).join('') || '<tr><td colspan="5" class="empty">No improvement steps yet.</td></tr>';
 }
 
@@ -296,10 +328,17 @@ $('run-form').onsubmit = event => { event.preventDefault(); action(async () => {
 $('preview-prompt').onclick = () => action(async () => { const p = await api('prompt?id=' + encodeURIComponent($('run-prompt').value)); $('text-heading').textContent = p.name; $('text-content').textContent = p.text; $('text-dialog').showModal(); });
 $('cancel-run').onclick = () => action(async () => { if (state.run) { await api('runs/' + state.run.id + '/cancel',{}); await showRun(state.run.id); } });
 $('export-csv').onclick = () => action(async () => { if (state.run) await download('runs/' + state.run.id + '/csv',state.run.id + '.csv'); });
+['improve-runner','improve-scope'].forEach(id => $(id).addEventListener('change', configureImprovement));
+$('load-coder-output').onclick = () => action(async () => {
+  const candidate = await api('candidates/' + $('load-coder-output').dataset.candidate);
+  if (candidate.status === 'awaiting_external') { $('coder-status').textContent = 'The output file is still empty.'; return; }
+  await loadLists(); await showCandidate(candidate.id); switchTab('candidates');
+});
 $('improve-form').onsubmit = event => { event.preventDefault(); action(async () => {
   if (!state.run) return;
-  await api('improvements',{...readForm(event.target,['max_output_tokens']), run_id:state.run.id});
-  await loadLists(); switchTab('candidates');
+  const job = await api('improvements',{...readForm(event.target,['max_output_tokens']), run_id:state.run.id});
+  await loadLists();
+  if (job.launch_prompt) displayHandoff(job); else switchTab('candidates');
 }, event.submitter); };
 $('candidate-form').onsubmit = event => { event.preventDefault(); action(async () => {
   const c = await api('candidates',{...readForm(event.target), parent_id:state.candidate});

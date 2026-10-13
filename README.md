@@ -5,6 +5,12 @@ prompts, reviewing model-proposed improvements, and backtesting candidates.
 This is prompt optimization with human feedback, not model-weight training.
 LangSmith is optional and disabled by default.
 
+**Improve prompts with Claude Code or Codex:** export a completed run as a local
+instruction-and-evidence bundle, let your AI coder write the next prompt version,
+and load it directly into the dashboard for backtesting. The same run can support
+multiple attempts with different reviewer guidance. See the
+[coder handoff walkthrough](#repeat-an-improvement-or-hand-it-to-claude-code--codex).
+
 ## Start independently
 
 Requires Python 3.11 or newer. From this repository's root:
@@ -78,9 +84,10 @@ speaks HTTP. Its normal static-site exposure is unchanged.
    model explanations and errors; export the entire table to CSV. Text links open
    the version saved in that run. Jobs run in the background; the page polls while
    they are active. Stop prevents the next call but saves any in-flight response.
-4. **Improve:** choose a source run, another model and optional guidance. The
-   graph sends completed **development** examples, their results and metrics to
-   the improver. It saves a complete replacement prompt plus rationale.
+4. **Improve:** reopen a completed run and choose API generation or a coder
+   handoff, sample scope, and high-priority guidance. Development examples are
+   the default scope when available; all successful examples can be included
+   explicitly. Each attempt registers a separate prompt candidate.
 5. **Prompts:** open a saved version, rename it, or remove it. Inspect the diff
    against its parent, or edit the text and save a new version. Removing a
    version leaves past runs untouched, because each run stores its own prompt
@@ -106,6 +113,63 @@ points for details, or select a point to open that run. Completed runs with erro
 use successful rows; other unfinished/failed runs are excluded. Different samples
 or settings can change metrics, so use paired backtests for controlled comparisons.
 
+## Repeat an improvement or hand it to Claude Code / Codex
+
+Select any completed run in **Run history**. The improvement panel stays available
+for additional attempts with new guidance. Choose **Development samples only** or
+**All successful samples from this run**. Runs with no development examples default
+to the latter. The form shows the included count and flags Test/Holdout inclusion.
+Each attempt creates a separate candidate; earlier attempts are preserved.
+
+**Reviewer guidance has high priority:** API calls place it in the instructions
+field, above general improvement preferences and inherited scoring rules. The
+output contract and language/materials controls are still required.
+
+### Step-by-step coder workflow
+
+1. In **Run history**, select a completed run under **Evaluation run**.
+2. In **Improve this run's prompt**, enter a new candidate name and choose the
+   sample scope. Enter your priorities in **Reviewer guidance — high priority**.
+3. Select **Claude Code** or **Codex** under **Run improvement in**, then click
+   **Prepare coder handoff**. No API key is needed to prepare the handoff.
+4. Copy the short prompt from **Coder handoff ready** and paste it into your coder.
+   It points to the generated Markdown instructions and the exact output file.
+   The coder needs filesystem access to those paths.
+5. After the coder finishes, click **Load coder output**. Review the imported
+   prompt and its diff under **Prompts & improvements**.
+6. Click **Use in evaluation**, select your evaluation model, and run a backtest.
+   Choose **Backtest the exact samples from** to compare on the original samples.
+   You can return to the source run to prepare another attempt with new guidance.
+
+The displayed prompt follows this form, with actual absolute paths filled in:
+
+```text
+Read /home/you/ai-origin/handoffs/improvement_<id>/instructions.md and follow it.
+Write the complete improved prompt to /home/you/ai-origin/candidates/candidate_<id>.txt.
+```
+
+The dashboard prepares the handoff; you start the coder yourself. Preparing it
+does not launch a coder or make an API call. It creates:
+
+- `~/ai-origin/handoffs/improvement_<id>/instructions.md`: full task and file paths.
+- `parent-prompt.txt`, `evidence.json`, and `samples/sample_<id>.json` in that folder:
+  frozen copies of the source run's selected successful samples, labels, results,
+  settings and metrics. Live sample edits cannot change this evidence.
+- `~/ai-origin/candidates/candidate_<id>.txt`: an empty output file.
+- Normal improvement/candidate JSON records, marked `awaiting_external`, so the
+  version appears immediately in prompt selectors.
+
+These paths use `AI_ORIGIN_DATA_DIR` when configured. Paste the displayed short
+prompt into a coder on the same computer. It writes the complete plain-text prompt
+to the designated output path using an atomic rename. No repository changes,
+metadata edits, or manual registration are needed.
+
+After it finishes, click **Load coder output**, open the version, or start a run
+with it. A nonempty valid file is imported once into the candidate JSON, with its
+hash and parent snapshot. Empty output cannot be evaluated. Once imported, later
+TXT edits do not change the frozen version; prepare another version for revisions.
+The handoff survives restarts and remains accessible in **Improvement history**.
+
 ## Selection and metrics
 
 Each sample belongs to one dataset, chosen when adding or editing it:
@@ -113,7 +177,7 @@ Each sample belongs to one dataset, chosen when adding or editing it:
 - **Development:** examples that may inform prompt improvements.
 - **Holdout:** reserved evaluation examples.
 - **Test:** samples deliberately added for a particular test, kept separate from
-  Holdout and excluded from prompt improvements.
+  Holdout and excluded from prompt improvements by default.
 
 Use **Samples → Add text → Dataset → Test** to add a test sample, then choose
 **Evaluate → Dataset → Test** to evaluate it. **All datasets** includes all three.
@@ -135,7 +199,9 @@ threshold; unknown/mixed examples do not enter those metrics. Undefined rates
 display a dash. Failed/pending responses never become 0% predictions. Results
 are also grouped by language, materials mode and dataset split.
 
-Holdout and Test examples and their aggregate metrics are excluded from improvement input.
+Holdout and Test examples and their aggregate metrics are excluded from improvement input
+by default. Selecting **All successful samples from this run** intentionally includes
+them; those samples are no longer independent validation for that candidate.
 Choose related student versions/assignment variations for the same split manually.
 Repeatedly choosing prompts based on one holdout set can still overfit it: refresh
 the holdout as the library grows. Agreement scores do not calibrate probabilities.
@@ -168,7 +234,8 @@ prompt and grading code. This lab collects pasted text, not exam API imports.
   candidates/candidate_<id>.txt       # convenient prompt text
 ```
 
-JSON is authoritative; generated TXT files are convenient exports. Each write
+JSON is authoritative after import; ordinary generated TXT files are convenient exports.
+An awaiting external candidate uses its designated TXT as the one-time import source. Each write
 uses an atomic temporary-file rename. Sample edits increment a revision; stale
 browser edits are rejected. Previous runs keep their own immutable snapshots.
 After restart, queued/running jobs become `interrupted`, preserving completed
@@ -186,6 +253,7 @@ Start with `schemas.py`, then `graphs.py`:
 - `service.py`: operations shared by graph nodes and HTTP, background worker,
   snapshots, prompt versions, CSV export.
 - `http_api.py`: small HTTP adapter, local/token access and input validation.
+- `external.py`: coder handoff bundles and one-time prompt import.
 - `dev.py`: standalone HTTP server; Kvasir imports the same HTTP adapter separately.
 
 Evaluation graph:
