@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2080" height="1180" viewBox="0 0 2080 1180">
+<title>AI-origin lab — evaluation and prompt improvement</title>
+<desc>Samples go to evaluation and run history. A completed run and new reviewer guidance feed either OpenAI API improvement or Claude Code or Codex. Both produce a prompt candidate for review and another evaluation or backtest.</desc>
+<defs><marker id="arrow" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 Z" fill="#29445b"/></marker></defs>
+<rect width="100%" height="100%" fill="white"/>
+<style>text{font-family:DejaVu Sans,Arial,sans-serif;fill:#19344a} .title{font-size:44px;font-weight:700} .name{font-size:32px;font-weight:700} .sub{font-size:23px;fill:#466073} .label{font-size:23px;fill:#29445b;stroke:white;stroke-width:12;paint-order:stroke fill;stroke-linejoin:round} .edge{fill:none;stroke:#29445b;stroke-width:3;stroke-linejoin:round;marker-end:url(#arrow)}</style>
+<text x="80" y="86" class="title">AI-origin lab</text>
+<text x="80" y="132" class="sub">Evaluation and human-guided prompt improvement</text>
+<rect x="80" y="230" width="500" height="150" fill="#f1fafb" stroke="#25818b" stroke-width="3"/>
+<text x="330.0" y="289" text-anchor="middle" class="name">Samples</text>
+<text x="330.0" y="333" text-anchor="middle" class="sub">Text, labels and optional materials</text>
+<rect x="790" y="230" width="500" height="150" fill="#f1f7fd" stroke="#3678bb" stroke-width="3"/>
+<text x="1040.0" y="289" text-anchor="middle" class="name">Evaluation run</text>
+<text x="1040.0" y="333" text-anchor="middle" class="sub">Selected prompt, model and samples</text>
+<rect x="1500" y="230" width="500" height="150" fill="#f1f7fd" stroke="#3678bb" stroke-width="3"/>
+<text x="1750.0" y="289" text-anchor="middle" class="name">Run history</text>
+<text x="1750.0" y="333" text-anchor="middle" class="sub">Results, metrics and charts</text>
+<rect x="1500" y="750" width="500" height="150" fill="#f1fafb" stroke="#25818b" stroke-width="3"/>
+<text x="1750.0" y="809" text-anchor="middle" class="name">Improvement setup</text>
+<text x="1750.0" y="853" text-anchor="middle" class="sub">Completed run + new human guidance</text>
+<rect x="790" y="600" width="500" height="150" fill="#f7f3fc" stroke="#7958ad" stroke-width="3"/>
+<text x="1040.0" y="659" text-anchor="middle" class="name">OpenAI API improvement</text>
+<text x="1040.0" y="703" text-anchor="middle" class="sub">Model generates a prompt candidate</text>
+<rect x="790" y="930" width="500" height="150" fill="#f7f3fc" stroke="#7958ad" stroke-width="3"/>
+<text x="1040.0" y="989" text-anchor="middle" class="name">Claude Code / Codex</text>
+<text x="1040.0" y="1033" text-anchor="middle" class="sub">Instructions file → coder → prompt file</text>
+<rect x="80" y="750" width="500" height="150" fill="#f1fafb" stroke="#25818b" stroke-width="3"/>
+<text x="330.0" y="809" text-anchor="middle" class="name">New prompt candidate</text>
+<text x="330.0" y="853" text-anchor="middle" class="sub">Review and select for the next run</text>
+<path d="M580 305 H790" class="edge"/>
+<path d="M1290 305 H1500" class="edge"/>
+<path d="M1750 380 V750" class="edge"/>
+<text x="1750" y="550" class="label" text-anchor="middle">Reopen a completed run</text>
+<path d="M1500 825 H1410 V675 H1290" class="edge"/>
+<path d="M1410 825 V1005 H1290" class="edge"/>
+<text x="1410" y="785" class="label" text-anchor="middle">Choose route</text>
+<path d="M790 675 H670 V825 H580" class="edge"/>
+<path d="M790 1005 H670 V825" fill="none" stroke="#29445b" stroke-width="3"/>
+<path d="M330 750 V475 H1040 V380" class="edge"/>
+<text x="680" y="456" class="label" text-anchor="middle">Evaluate / backtest the candidate</text>
+</svg>
