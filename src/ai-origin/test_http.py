@@ -111,6 +111,27 @@ def test_dashboard_workflow(server: tuple[str, Service], tmp_path: Path) -> None
         page.wait_for_function("document.querySelector('#run-summary').textContent.includes('1 completed')")
         assert "25.0%" in page.locator("#results-body").inner_text()
         assert "20.0%" in page.locator("#results-body").inner_text()
+        playwright.expect(page.locator('#difference-histogram .histogram-bar[data-count="1"]')).to_have_count(1)
+        playwright.expect(page.locator('#run-trends .metric-line')).to_have_count(3)
+        playwright.expect(page.locator('#run-trends .metric-point')).to_have_count(3)
+        assert page.evaluate("""() => {
+            const row = (m,h,status='completed') => ({model_probability:m,sample:{manual_probability:h},status});
+            const bins = RunCharts.histogramBins([row(0,100),row(100,0),row(20,20),row(null,20),row(50,20,'failed')]);
+            return bins[0].count===1 && bins[10].count===1 && bins[19].count===1 && bins.reduce((n,b)=>n+b.count,0)===3;
+        }""")
+        # Chronology, dataset filters and missing metrics must not invent zeros.
+        assert page.evaluate("""() => {
+            const runs=[
+                {id:'b',created_at:'2026-02-01',status:'completed',config:{split:'test'},metrics:{overall:{mae_pp:10,rmse_pp:12,bias_pp:-2}}},
+                {id:'a',created_at:'2026-01-01',status:'completed_with_errors',config:{split:'holdout'},metrics:{overall:{mae_pp:null,rmse_pp:null,bias_pp:null}}},
+                {id:'c',created_at:'2026-03-01',status:'running',config:{split:'test'}},
+                {id:'d',created_at:'2026-04-01',status:'completed',config:{split:'all'}}];
+            const target=document.createElement('div');
+            RunCharts.trends(target,runs,'all',null);
+            return RunCharts.trendRuns(runs,'all').map(r=>r.id).join(',')==='a,b,d'
+                && RunCharts.trendRuns(runs,'test').length===1 && RunCharts.trendRuns(runs,'mixed')[0].id==='d'
+                && target.querySelectorAll('.metric-point').length===3;
+        }""")
         page.screenshot(path=str(tmp_path / "results-desktop.png"), full_page=True)
         with page.expect_download() as download:
             page.get_by_role("button", name="Export CSV", exact=True).click()
@@ -130,6 +151,7 @@ def test_dashboard_workflow(server: tuple[str, Service], tmp_path: Path) -> None
         page.locator('#reference-run').select_option(run_id)
         page.get_by_role("button", name="Start evaluation", exact=True).click()
         page.wait_for_function("document.querySelector('#run-summary').textContent.includes('Paired backtest: 1')")
+        playwright.expect(page.locator('#run-trends .metric-point')).to_have_count(6)
         page.set_viewport_size({"width": 390, "height": 844})
         page.locator('[data-tab="samples"]').click()
         page.get_by_role("button", name="Add text", exact=True).click()
@@ -157,6 +179,18 @@ def test_dashboard_workflow(server: tuple[str, Service], tmp_path: Path) -> None
         playwright.expect(page.locator('#results-body')).to_contain_text('Deliberate test')
         page.wait_for_function("document.querySelector('#run-summary').textContent.includes('1 completed')")
         playwright.expect(page.locator('#improve-panel')).to_be_hidden()
+        page.locator('#trend-split').select_option('test')
+        playwright.expect(page.locator('#run-trends .metric-point')).to_have_count(3)
+        page.locator('#trend-split').select_option('holdout')
+        playwright.expect(page.locator('#run-trends')).to_contain_text('Complete an evaluation')
+        page.locator('#trend-split').select_option('all')
+        playwright.expect(page.locator('#run-trends .metric-point')).to_have_count(9)
+        page.locator('#run-trends circle.metric-point').first.focus()
+        page.keyboard.press('Enter')
+        playwright.expect(page.locator('#results-body')).to_contain_text('A multilingual example')
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        page.set_viewport_size({"width": 1440, "height": 1050})
+        page.screenshot(path=str(tmp_path / "charts-desktop.png"), full_page=True)
         assert any(r['config']['split'] == 'test' and r['results'][0]['sample']['split'] == 'test'
                    for r in app.store.list('runs'))
         browser.close()

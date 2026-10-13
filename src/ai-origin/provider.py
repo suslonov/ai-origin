@@ -39,10 +39,6 @@ def model_efforts(model: str) -> list[str]:
         return ["auto"]
     if base == "gpt-5-pro":
         return ["auto", "high"]
-    if base.startswith(("o1-pro", "o3-pro")):
-        return ["auto"]
-    if base.startswith(("o1", "o3", "o4")):
-        return ["auto", "low", "medium", "high"]
     if base in {"gpt-5", "gpt-5-mini", "gpt-5-nano"}:
         return ["auto", "minimal", "low", "medium", "high"]
     if base.startswith("gpt-6"):
@@ -54,9 +50,15 @@ def model_efforts(model: str) -> list[str]:
     return ["auto", "none", "minimal", "low", "medium", "high", "xhigh", "max"]
 
 
+def excluded_model(model: str) -> bool:
+    """Block retired lab families, including their dated/fine-tuned variants."""
+    base = model.lower().split(":")[1] if model.lower().startswith("ft:") else model.lower()
+    return bool(re.match(r"^(?:o\d|gpt-4o|chatgpt-4o)", base))
+
+
 def text_model(model: str) -> bool:
     """Exclude modalities/tools that cannot perform this text JSON task."""
-    return bool(re.match(r"^(gpt-(?:4o|4\.1|5|6)|o[134](?:-|$)|ft:)", model)) and not any(
+    return not excluded_model(model) and bool(re.match(r"^(gpt-(?:4\.1|5|6)|ft:)", model)) and not any(
         word in model for word in ("audio", "realtime", "transcribe", "tts", "image", "search", "deep-research", "codex", "chat-latest")
     )
 
@@ -107,6 +109,8 @@ class OpenAIProvider:
             return self._models
 
     def validate_model(self, config: ModelInput) -> None:
+        if excluded_model(config.model):
+            raise ValueError("o-series and GPT-4o models are disabled in this lab.")
         available = {model["id"]: model for model in self.models()}
         if config.model not in available:
             raise ValueError("Choose a text model returned by this account's OpenAI model list.")
@@ -117,6 +121,10 @@ class OpenAIProvider:
                process_inputs=lambda values: {k: v for k, v in values.items() if k != "self"})
     def complete(self, request: dict) -> dict:
         """Return the full response, including actual model ID and token usage."""
+        # Enforce the same restriction at the paid-call boundary, not only in
+        # dropdown discovery. Historical records remain readable unchanged.
+        if excluded_model(request.get("model", "")):
+            raise ProviderError("o-series and GPT-4o models are disabled in this lab.", 400)
         return self._request("POST", "responses", request)
 
 

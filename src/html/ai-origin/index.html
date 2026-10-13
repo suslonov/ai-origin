@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AI-origin lab · Kvasir Exam</title>
   <link rel="stylesheet" href="/ai-origin/style.css">
+  <script src="/ai-origin/charts.js" defer></script>
   <script src="/ai-origin/app.js" defer></script>
 </head>
 <body>
@@ -47,9 +48,15 @@
     <section id="results-view" class="view" hidden>
       <div class="section-head"><div><h2>Run history</h2><p>Agreement metrics use successful responses only. Failed and unfinished samples remain visible.</p></div></div>
       <div class="inline"><label>Evaluation run<select id="run-history"></select></label><button id="refresh-results" class="secondary">Refresh results</button><button id="export-csv" class="secondary">Export CSV</button><button id="cancel-run" class="danger" hidden>Stop after current sample</button></div>
+      <section class="panel" aria-labelledby="trend-title">
+        <div class="section-head"><h3 id="trend-title">Metrics across runs</h3><label>Compare dataset<select id="trend-split"><option value="all">All runs</option><option value="development">Development</option><option value="holdout">Holdout</option><option value="test">Test</option><option value="mixed">All-dataset runs</option></select></label></div>
+        <p class="help">MAE and RMSE: lower is better. Signed bias: closer to zero is better. Completed runs only; runs completed with errors use successful samples. Sample sets and models may differ, so trends are not paired comparisons. Select a point to open its run.</p>
+        <div id="run-trends"></div>
+      </section>
       <div id="run-summary" class="panel muted">Select a run to inspect its results.</div>
       <div id="metrics" class="metric-grid"></div>
       <details id="metric-details" hidden><summary>Metrics by language, materials and dataset</summary><div id="grouped-metrics" class="table-wrap"></div></details>
+      <section class="panel" aria-labelledby="histogram-title"><h3 id="histogram-title">Difference distribution</h3><div id="difference-histogram"><p class="help">Select a run to see its differences.</p></div></section>
       <div class="table-wrap"><table><thead><tr><th>Text ID / link</th><th>Lang</th><th>Manual evaluation</th><th>Model evaluation</th><th>Difference</th><th>Result / explanation</th></tr></thead><tbody id="results-body"></tbody></table></div>
       <div class="panel" id="improve-panel" hidden>
         <h3>Improve this run's prompt</h3><p>Only completed development samples are sent to the improver. A candidate is saved for review; the repository prompt is never changed.</p>

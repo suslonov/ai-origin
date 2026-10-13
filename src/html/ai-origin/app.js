@@ -61,7 +61,7 @@ async function loadLists() {
   fillSelect('run-prompt', prompts, 'repo'); fillSelect('candidate-select', prompts, 'repo');
   fillSelect('run-history', [['', 'Choose a run'], ...state.runs.map(r => [r.id, `${when(r.created_at)} · ${r.name} · ${r.status}`])]);
   fillSelect('reference-run', [['', 'New selection'], ...state.runs.filter(r => !active(r.status)).map(r => [r.id, `${r.name} · ${r.id}`])]);
-  renderSamples(); renderSelection(); renderImprovements();
+  renderSamples(); renderSelection(); renderImprovements(); renderTrends();
 }
 
 function renderSamples() {
@@ -126,9 +126,16 @@ async function showRun(id) {
   renderRun();
 }
 
+function renderTrends() {
+  // The selected detail may be fresher than the lightweight history poll.
+  const runs = state.runs.map(r => r.id === state.run?.id ? state.run : r);
+  RunCharts.trends($('run-trends'), runs, $('trend-split').value, state.run?.id);
+}
+
 function renderRun() {
   const run = state.run;
   if (!run) return;
+  renderTrends(); RunCharts.histogram($('difference-histogram'), run);
   const m = run.metrics.overall, k = m.known_origin;
   $('run-summary').innerHTML = `<strong>${esc(run.name)}</strong> ${badge(run.status)}<p>${m.completed} completed · ${m.failed} failed · ${m.pending} unfinished · ${esc(run.config.model)} / ${esc(run.config.effort)}</p><small>${esc(run.id)} · ${esc(run.prompt.name)} · SHA ${esc(run.prompt.sha256.slice(0,12))} · ${when(run.created_at)}</small>${run.error ? `<p class="positive">${esc(run.error)}</p>` : ''}${run.comparison ? `<p>Paired backtest: ${run.comparison.paired_samples} samples · MAE change ${fmt(run.comparison.mae_change_pp,' pp')} (negative is better) · ${run.comparison.improved} improved / ${run.comparison.regressed} regressed.</p>` : ''}`;
   const items = [['Mean absolute error',fmt(m.mae_pp,' pp')],['Root mean square error',fmt(m.rmse_pp,' pp')],['Signed bias',fmt(m.bias_pp,' pp')],['Inside manual range',rate(m.within_range)],['Distance outside range',fmt(m.range_distance_pp,' pp')],['Known-origin accuracy',rate(k.accuracy)],['Human false-positive rate',rate(k.false_positive_rate)],['AI recall',rate(k.recall)]];
@@ -179,6 +186,11 @@ $('close-sample').onclick = () => $('sample-dialog').close();
 $('close-text').onclick = () => $('text-dialog').close();
 $('refresh').onclick = () => action(loadLists, $('refresh'));
 $('refresh-results').onclick = () => action(async () => { await loadLists(); if (state.run) await showRun(state.run.id); });
+$('trend-split').onchange = renderTrends;
+$('run-trends').onclick = event => { const id = event.target.closest('[data-run]')?.dataset.run; if (id) action(() => showRun(id)); };
+$('run-trends').onkeydown = event => {
+  if (event.target.matches('circle[data-run]') && ['Enter',' '].includes(event.key)) { event.preventDefault(); action(() => showRun(event.target.dataset.run)); }
+};
 $('run-history').onchange = () => action(() => showRun($('run-history').value));
 $('candidate-select').onchange = () => action(() => showCandidate($('candidate-select').value));
 $('new-candidate').onclick = () => action(async () => { await showCandidate('repo'); $('candidate-form').elements.name.focus(); });

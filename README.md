@@ -88,12 +88,22 @@ speaks HTTP. Its normal static-site exposure is unchanged.
    exact samples from”. Its immutable sample snapshots override the split and
    selection settings. Results include a paired comparison with that run.
 
-Models are discovered, not hardcoded. The model-list API does not expose endpoint
+Models are discovered, not hardcoded. The o-series and GPT-4o families (including
+dated and fine-tuned variants) are excluded from discovery and blocked for new
+evaluation/improvement calls. Historical runs remain readable. The model-list API does not expose endpoint
 or reasoning capability metadata: the UI filters obvious non-text models and
 offers family-based effort choices. “Auto” omits the effort parameter. Unsupported
 combinations produce a saved API error, never a silent model/effort substitution.
 New model families may require updating `provider.model_efforts` after checking
 their documentation. Input truncation and automatic paid retries are disabled.
+
+Run history includes a **Difference distribution** histogram above the results
+table: model minus manual estimate, in 10-percentage-point bins. Only successful
+predictions count. Below **Evaluation run**, a chronological chart tracks **MAE,
+RMSE, and signed bias**, all in percentage points. Filter by dataset, hover/focus
+points for details, or select a point to open that run. Completed runs with errors
+use successful rows; other unfinished/failed runs are excluded. Different samples
+or settings can change metrics, so use paired backtests for controlled comparisons.
 
 ## Selection and metrics
 

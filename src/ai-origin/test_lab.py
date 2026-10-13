@@ -16,7 +16,7 @@ from pydantic import ValidationError
 
 from graphs import evaluation_content, evaluation_instructions
 from metrics import quality_metrics, select_samples
-from provider import OpenAIProvider, ProviderError, make_request, parse_response
+from provider import OpenAIProvider, ProviderError, make_request, parse_response, text_model
 from schemas import CandidateInput, CandidateReview, ImprovementInput, RunInput, SampleInput
 from service import REPO_PROMPT, Service
 from storage import Store
@@ -266,3 +266,26 @@ def test_test_dataset_stays_separate(lab: Service, strategy: str) -> None:
     assert set(run["metrics"]["split"]) == {"test"}
     assert run["metrics"]["overall"]["completed"] == 1
     assert {s["split"] for s in select_samples(list(records.values()), RunInput(model="test-model", split="all"))} == {"development", "holdout", "test"}
+
+
+@pytest.mark.parametrize("model", ["o1", "o3-mini", "o4-mini-2025-04-16", "o9-preview",
+                                   "gpt-4o", "gpt-4o-mini", "gpt-4o-2024-08-06",
+                                   "chatgpt-4o-latest", "ft:gpt-4o-mini:org:custom:id",
+                                   "ft:o3:org:custom:id"])
+def test_excluded_models_never_reach_provider(model: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    provider = OpenAIProvider()
+    def forbidden(*args, **kwargs):
+        pytest.fail("Excluded model must be rejected before any HTTP request")
+    monkeypatch.setattr(provider, "_request", forbidden)
+    assert not text_model(model)
+    with pytest.raises(ValueError, match="disabled"):
+        provider.validate_model(RunInput(model=model))
+    with pytest.raises(ProviderError, match="disabled"):
+        provider.complete({"model": model})
+
+
+def test_model_discovery_keeps_supported_families(monkeypatch: pytest.MonkeyPatch) -> None:
+    provider = OpenAIProvider()
+    ids = ["o3", "gpt-4o-mini", "ft:gpt-4o:org:custom:id", "gpt-4.1", "gpt-5-mini", "gpt-6-astra"]
+    monkeypatch.setattr(provider, "_request", lambda *args: {"data": [{"id": model} for model in ids]})
+    assert {m["id"] for m in provider.models()} == {"gpt-4.1", "gpt-5-mini", "gpt-6-astra"}
