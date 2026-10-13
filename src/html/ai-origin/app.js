@@ -61,12 +61,23 @@ async function loadLists() {
   fillSelect('run-prompt', prompts, 'repo'); fillSelect('candidate-select', prompts, 'repo');
   fillSelect('run-history', [['', 'Choose a run'], ...state.runs.map(r => [r.id, `${when(r.created_at)} · ${r.name} · ${r.status}`])]);
   fillSelect('reference-run', [['', 'New selection'], ...state.runs.filter(r => !active(r.status)).map(r => [r.id, `${r.name} · ${r.id}`])]);
-  renderSamples(); renderSelection(); renderImprovements(); renderTrends();
+  renderSelection(); renderImprovements(); renderTrends(); await searchSamples();
+}
+
+let sampleSearchTimer, sampleSearchVersion = 0, matchingSampleIds = null;
+
+async function searchSamples() {
+  const version = ++sampleSearchVersion, query = $('sample-search').value.trim();
+  if (!query) { matchingSampleIds = null; renderSamples(); return; }
+  const matches = await api('samples?q=' + encodeURIComponent(query));
+  // A slower previous request must not overwrite the latest search or a clear.
+  if (version !== sampleSearchVersion || query !== $('sample-search').value.trim()) return;
+  matchingSampleIds = new Set(matches.map(s => s.id));
+  renderSamples();
 }
 
 function renderSamples() {
-  const search = $('sample-search').value.toLowerCase();
-  const samples = state.samples.filter(s => (!search || `${s.title} ${s.id}`.toLowerCase().includes(search)) && (!$('language-filter').value || s.lang === $('language-filter').value) && (!$('split-filter').value || s.split === $('split-filter').value));
+  const samples = state.samples.filter(s => (matchingSampleIds === null || matchingSampleIds.has(s.id)) && (!$('language-filter').value || s.lang === $('language-filter').value) && (!$('split-filter').value || s.split === $('split-filter').value));
   $('samples-body').innerHTML = samples.map(s => `<tr><td><a href="${link(s.id)}" target="_blank" rel="noopener">${esc(s.title)}</a><small>${esc(s.id)}</small></td><td>${esc(s.lang)}</td><td>${fmt(s.manual_probability,'%')}<small>${fmt(s.manual_low)}–${fmt(s.manual_high)}%</small></td><td>${esc(s.origin)}</td><td>${esc(s.materials_mode)}</td><td>${esc(s.split)}</td><td><button class="secondary" data-edit-sample="${s.id}">Edit</button></td></tr>`).join('') || '<tr><td colspan="7" class="empty">No samples yet. Add a text and your manual assessment.</td></tr>';
 }
 
@@ -89,8 +100,14 @@ function setEfforts(prefix) {
 
 async function loadModels() {
   const response = await api('models'); state.models = response.models;
+  const defaultModel = 'gpt-6-luna';
+  const available = state.models.some(m => m.id === defaultModel);
+  const options = state.models.map(m => [m.id,m.id]);
+  if (!available) options.unshift(['', `${defaultModel} unavailable — choose a model`]);
   for (const prefix of ['run', 'improve']) {
-    fillSelect(`${prefix}-model`, state.models.map(m => [m.id,m.id])); setEfforts(prefix);
+    fillSelect(`${prefix}-model`, options);
+    $(`${prefix}-model`).value = available ? defaultModel : '';
+    setEfforts(prefix);
   }
   $('connection').textContent = `OpenAI connected · ${state.models.length} text models`;
 }
@@ -177,7 +194,12 @@ async function download(path, filename) {
 }
 
 document.querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click', () => switchTab(button.dataset.tab)));
-['sample-search','language-filter','split-filter'].forEach(id => $(id).addEventListener('input', renderSamples));
+['language-filter','split-filter'].forEach(id => $(id).addEventListener('input', renderSamples));
+$('sample-search').addEventListener('input', () => {
+  ++sampleSearchVersion; clearTimeout(sampleSearchTimer);
+  if (!$('sample-search').value.trim()) { matchingSampleIds = null; renderSamples(); return; }
+  sampleSearchTimer = setTimeout(() => action(searchSamples), 200);
+});
 ['run-split','strategy','reference-run'].forEach(id => $(id).addEventListener('change', renderSelection));
 ['run','improve'].forEach(prefix => $(`${prefix}-model`).addEventListener('change', () => setEfforts(prefix)));
 $('materials-mode').addEventListener('change', setMaterials);

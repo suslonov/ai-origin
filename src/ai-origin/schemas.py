@@ -49,7 +49,7 @@ class SampleInput(InputModel):
 
 
 class ModelInput(InputModel):
-    model: str = Field(min_length=1, max_length=150)
+    model: str = Field(default="gpt-6-luna", min_length=1, max_length=150)
     effort: Literal["auto", "none", "minimal", "low", "medium", "high", "xhigh", "max"] = "auto"
     max_output_tokens: int = Field(default=8192, ge=512, le=65536)
 

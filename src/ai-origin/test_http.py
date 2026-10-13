@@ -12,7 +12,7 @@ import pytest
 import requests
 
 import http_api
-from test_lab import FakeProvider
+from test_lab import FakeProvider, sample
 from service import Service
 
 
@@ -94,6 +94,16 @@ def test_dashboard_workflow(server: tuple[str, Service], tmp_path: Path) -> None
         page.on("pageerror", lambda exc: errors.append(str(exc)))
         page.goto(base + "/ai-origin/")
         page.wait_for_function("document.querySelector('#connection').textContent.includes('connected')")
+        playwright.expect(page.locator('#run-model')).to_have_value('')
+        playwright.expect(page.locator('#improve-model')).to_have_value('')
+        # Model list refreshes always start with the requested default.
+        page.route('**/ai-origin/api/models', lambda route: route.fulfill(json={"models": [
+            {"id": "test-model", "efforts": ["auto"]},
+            {"id": "gpt-6-luna", "efforts": ["auto", "high"]}]}))
+        page.evaluate('loadModels()')
+        playwright.expect(page.locator('#run-model')).to_have_value('gpt-6-luna')
+        playwright.expect(page.locator('#improve-model')).to_have_value('gpt-6-luna')
+        # Use the offline fake provider for the remaining workflow.
         page.get_by_role("button", name="Add text", exact=True).click()
         form = page.locator("#sample-form")
         for field, value in {"title": "A multilingual example", "lang": "he", "manual_probability": "20",
@@ -104,7 +114,16 @@ def test_dashboard_workflow(server: tuple[str, Service], tmp_path: Path) -> None
         # Closing the modal precedes the asynchronous list refresh. Wait for the
         # saved row, rather than depending on browser/network scheduling.
         playwright.expect(page.locator("#samples-body")).to_contain_text("A multilingual example")
+        page.get_by_label("Search sample text, title or ID").fill("THIS IS A TEST")
+        with page.expect_response(lambda response: '/api/samples?q=' in response.url):
+            page.wait_for_timeout(250)
+        playwright.expect(page.locator("#samples-body")).to_contain_text("A multilingual example")
+        page.locator('#sample-search').fill('not present in this sample')
+        playwright.expect(page.locator("#samples-body")).not_to_contain_text("A multilingual example")
+        page.locator('#sample-search').fill('')
+        playwright.expect(page.locator("#samples-body")).to_contain_text("A multilingual example")
         page.locator('[data-tab="evaluate"]').click()
+        page.locator('#run-model').select_option('test-model')
         page.locator('#strategy').select_option('manual')
         page.locator('#manual-selection input').check()
         page.get_by_role("button", name="Start evaluation", exact=True).click()
@@ -137,6 +156,7 @@ def test_dashboard_workflow(server: tuple[str, Service], tmp_path: Path) -> None
             page.get_by_role("button", name="Export CSV", exact=True).click()
         assert Path(download.value.path()).read_text().startswith('text_id,text_link')
         app.provider.replies = [{"prompt": "Improved policy. Return the existing fields.", "rationale": "Test improvement."}]
+        page.locator('#improve-model').select_option('test-model')
         page.locator('#improve-form [name="name"]').fill("Reviewed candidate")
         page.get_by_role("button", name="Generate candidate", exact=True).click()
         page.get_by_role("button", name="Review candidate", exact=True).wait_for()
@@ -195,3 +215,23 @@ def test_dashboard_workflow(server: tuple[str, Service], tmp_path: Path) -> None
                    for r in app.store.list('runs'))
         browser.close()
     assert errors == []
+
+
+def test_sample_search_scans_current_text_files(server: tuple[str, Service]) -> None:
+    base, app = server
+    first = app.save_sample(sample(title="First", text="A distinctive sentence. שלום עולם"))
+    second = app.save_sample(sample(title="Second", text="A different answer."))
+    def search(query):
+        response = requests.get(base + "/ai-origin/api/samples", params={"q": query}, timeout=5)
+        assert response.ok
+        return response.json()
+    assert [s["id"] for s in search(" DISTINCTIVE SENTENCE ")] == [first["id"]]
+    assert [s["id"] for s in search("שלום")] == [first["id"]]
+    assert [s["id"] for s in search("SECOND")] == [second["id"]]
+    assert [s["id"] for s in search(first["id"])] == [first["id"]]
+    assert "text" not in search("distinctive")[0]
+    assert search("no such phrase") == []
+    app.save_sample(sample(title="First", text="Updated wording."), first["id"], first["revision"])
+    assert search("distinctive") == []
+    assert [s["id"] for s in search("updated wording")] == [first["id"]]
+    assert len(search("")) == 2

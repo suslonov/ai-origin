@@ -81,8 +81,16 @@ def handle(handler: BaseHTTPRequestHandler) -> None:
             if parts == ["models"]:
                 return send(handler, {"models": service.provider.models(refresh=query.get("refresh") == ["1"])})
             if parts == ["samples"]:
+                # Scan current JSON files for each search; this small library
+                # needs no index. Keep large text fields out of list responses.
+                search = query.get("q", [""])[0].strip().casefold()
+                samples = service.store.list("samples")
+                if search:
+                    samples = [s for s in samples if any(
+                        search in str(s.get(field, "")).casefold()
+                        for field in ("title", "id", "text"))]
                 return send(handler, [{k: v for k, v in s.items() if k not in {"text", "materials", "assignment"}}
-                                      for s in service.store.list("samples")])
+                                      for s in samples])
             if parts == ["prompt"]:
                 return send(handler, service.prompt(query.get("id", ["repo"])[0]))
             if len(parts) == 1 and parts[0] in {"runs", "candidates", "improvements"}:
