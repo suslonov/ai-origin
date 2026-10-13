@@ -34,7 +34,7 @@ window.RunCharts = (() => {
     marks += text(left,14,'Count','start');
     const label = (b,i) => `${b.low} ≤ difference ${i===19?'≤':'<'} ${b.high} pp`;
     bins.forEach((b,i) => {
-      marks += `<rect class="histogram-bar" tabindex="0" data-count="${b.count}" x="${left+i*step+1}" y="${y(b.count)}" width="${step-2}" height="${plotH*b.count/max}" fill="${b.high<=0?'#375bcc':'#087c78'}"><title>${esc(label(b,i))}: ${b.count} samples</title></rect>`;
+      marks += `<rect class="histogram-bar" tabindex="0" data-count="${b.count}" x="${left+i*step+1}" y="${y(b.count)}" width="${step-2}" height="${plotH*b.count/max}" fill="#375bcc"><title>${esc(label(b,i))}: ${b.count} samples</title></rect>`;
     });
     for (let d=-100;d<=100;d+=20) marks+=text(left+(d+100)/200*plotW,h-bottom+23,d);
     marks+=line(left+plotW/2,top,left+plotW/2,h-bottom,'chart-zero');
