@@ -130,6 +130,26 @@ def test_dashboard_workflow(server: tuple[str, Service], tmp_path: Path) -> None
         page.wait_for_function("document.querySelector('#run-summary').textContent.includes('1 completed')")
         assert "25.0%" in page.locator("#results-body").inner_text()
         assert "20.0%" in page.locator("#results-body").inner_text()
+        # Exercise header clicks with numeric, negative and missing values.
+        page.evaluate("""() => {
+            window.savedSortRows = state.run.results;
+            const base=state.run.results[0];
+            state.run.results=[100,2,null,-5].map((difference,i)=>({...base,
+                sample:{...base.sample,title:`Sort ${i}`,manual_probability:0},model_probability:difference}));
+            renderResultRows();
+        }""")
+        difference = page.locator('[data-result-sort="difference"]')
+        difference.click()
+        assert page.locator('#results-body tr td:nth-child(5)').all_text_contents() == ['-5.0 pp','2.0 pp','100.0 pp','—']
+        playwright.expect(difference.locator('..')).to_have_attribute('aria-sort','ascending')
+        difference.focus()
+        page.keyboard.press('Enter')
+        assert page.locator('#results-body tr td:nth-child(5)').all_text_contents() == ['100.0 pp','2.0 pp','-5.0 pp','—']
+        playwright.expect(difference.locator('..')).to_have_attribute('aria-sort','descending')
+        page.evaluate('renderResultRows()')
+        assert page.locator('#results-body tr td:nth-child(5)').all_text_contents()[-1] == '—'
+        assert page.evaluate('state.run.results.map(r=>r.model_probability)') == [100,2,None,-5]
+        page.evaluate('state.run.results=window.savedSortRows; renderResultRows()')
         playwright.expect(page.locator('#difference-histogram .histogram-bar[data-count="1"]')).to_have_count(1)
         playwright.expect(page.locator('#run-trends .metric-line')).to_have_count(3)
         playwright.expect(page.locator('#run-trends .metric-point')).to_have_count(3)

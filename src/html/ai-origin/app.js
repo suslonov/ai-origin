@@ -160,12 +160,48 @@ function renderRun() {
   $('run-summary').innerHTML += `<p class="help">Manual agreement uses ${m.completed} samples. Known-origin metrics use ${k.count} confirmed human/AI samples at a ${k.threshold}% threshold: TP ${k.tp}, TN ${k.tn}, FP ${k.fp}, FN ${k.fn}. Precision ${rate(k.precision)} · Brier ${k.brier == null ? '—' : k.brier.toFixed(3)}. These estimates are uncalibrated; this sample collection is not a population accuracy claim.</p>`;
   $('metric-details').hidden = false;
   $('grouped-metrics').innerHTML = `<table><thead><tr><th>Group</th><th>Value</th><th>Completed / total</th><th>MAE</th><th>Within range</th><th>Human FPR</th></tr></thead><tbody>${['lang','materials_mode','split'].flatMap(field => Object.entries(run.metrics[field]).map(([name,v]) => `<tr><td>${esc(field)}</td><td>${esc(name)}</td><td>${v.completed} / ${v.total}</td><td>${fmt(v.mae_pp,' pp')}</td><td>${rate(v.within_range)}</td><td>${rate(v.known_origin.false_positive_rate)}</td></tr>`)).join('')}</tbody></table>`;
-  $('results-body').innerHTML = run.results.map(r => {
+  renderResultRows();
+  $('cancel-run').hidden = !active(run.status);
+  $('improve-panel').hidden = active(run.status) || !run.results.some(r => r.status === 'completed' && r.sample.split === 'development');
+}
+
+// Table ordering is a view preference: never reorder the stored run snapshots.
+let resultSort = {key: null, direction: 1};
+const resultCollator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
+function sortedResults(rows) {
+  if (!resultSort.key) return rows;
+  const value = row => {
+    const sample = row.sample;
+    switch (resultSort.key) {
+      case 'text': return sample.title || sample.id;
+      case 'lang': return sample.lang;
+      case 'manual': return sample.manual_probability;
+      case 'model': return row.model_probability;
+      case 'difference': return row.model_probability == null ? null : row.model_probability - sample.manual_probability;
+      case 'result': return `${row.status} ${row.explanation || row.error || ''}`;
+    }
+  };
+  return [...rows].sort((a,b) => {
+    const av = value(a), bv = value(b);
+    // Unfinished/failed predictions stay last in either direction.
+    const absent = v => v == null || (typeof v === 'number' && !Number.isFinite(v));
+    if (absent(av) || absent(bv)) return Number(absent(av)) - Number(absent(bv));
+    return resultSort.direction * (typeof av === 'number' ? av-bv : resultCollator.compare(av,bv));
+  });
+}
+
+function renderResultRows() {
+  const run = state.run;
+  if (!run) return;
+  document.querySelectorAll('[data-result-sort]').forEach(button => {
+    const selected = button.dataset.resultSort === resultSort.key;
+    button.closest('th').setAttribute('aria-sort', selected ? (resultSort.direction === 1 ? 'ascending' : 'descending') : 'none');
+    button.querySelector('.sort-direction').textContent = selected ? (resultSort.direction === 1 ? '↑' : '↓') : '↕';
+  });
+  $('results-body').innerHTML = sortedResults(run.results).map(r => {
     const s = r.sample, difference = r.model_probability == null ? null : r.model_probability - s.manual_probability;
     return `<tr><td><a href="${link(s.id,run.id)}" target="_blank" rel="noopener">${esc(s.title)}</a><small>${esc(s.id)} · r${s.revision}</small></td><td>${esc(s.lang)}</td><td>${fmt(s.manual_probability,'%')}<small>${fmt(s.manual_low)}–${fmt(s.manual_high)}% · ${esc(s.origin)}</small></td><td>${fmt(r.model_probability,'%')}</td><td>${fmt(difference,' pp')}</td><td class="explanation">${badge(r.status)}${r.explanation ? `<details><summary>Read explanation</summary><p dir="auto">${esc(r.explanation)}</p></details>` : ''}${r.error ? `<p>${esc(r.error)}</p>` : ''}</td></tr>`;
   }).join('');
-  $('cancel-run').hidden = !active(run.status);
-  $('improve-panel').hidden = active(run.status) || !run.results.some(r => r.status === 'completed' && r.sample.split === 'development');
 }
 
 async function showCandidate(id) {
@@ -212,6 +248,12 @@ $('trend-split').onchange = renderTrends;
 $('run-trends').onclick = event => { const id = event.target.closest('[data-run]')?.dataset.run; if (id) action(() => showRun(id)); };
 $('run-trends').onkeydown = event => {
   if (event.target.matches('circle[data-run]') && ['Enter',' '].includes(event.key)) { event.preventDefault(); action(() => showRun(event.target.dataset.run)); }
+};
+$('results-table').querySelector('thead').onclick = event => {
+  const key = event.target.closest('[data-result-sort]')?.dataset.resultSort;
+  if (!key) return;
+  resultSort = {key, direction: resultSort.key === key ? -resultSort.direction : 1};
+  renderResultRows();
 };
 $('run-history').onchange = () => action(() => showRun($('run-history').value));
 $('candidate-select').onchange = () => action(() => showCandidate($('candidate-select').value));
