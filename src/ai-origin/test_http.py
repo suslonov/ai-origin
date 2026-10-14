@@ -293,3 +293,134 @@ def test_sample_search_scans_current_text_files(server: tuple[str, Service]) -> 
     assert search("distinctive") == []
     assert [s["id"] for s in search("updated wording")] == [first["id"]]
     assert len(search("")) == 2
+
+
+
+def test_one_text_settings_validation_and_no_storage(server: tuple[str, Service]) -> None:
+    import json
+    from schemas import CandidateInput
+    from provider import ProviderError
+
+    base, app = server
+    candidate = app.save_candidate(CandidateInput(name="One-off policy", prompt="Custom evaluation policy."))
+    before = {p.relative_to(app.store.root): p.read_bytes() for p in app.store.root.rglob("*") if p.is_file()}
+    url = base + "/ai-origin/api/evaluate-one"
+    headers = {"X-AI-Origin": "1"}
+    data = {"text": "שלום <script>not code</script>", "lang": "he", "model": "test-model",
+            "prompt_id": candidate["id"], "effort": "high", "max_output_tokens": 1024,
+            "materials_mode": "use", "materials": "Course sources.", "assignment": "Explain your answer."}
+    assert requests.post(url, json=data, timeout=5).status_code == 403
+    response = requests.post(url, json=data, headers=headers, timeout=5)
+    assert response.ok
+    result = response.json()
+    assert result["model_probability"] == 25
+    assert result["explanation"] == "A quoted observation."
+    assert result["raw_response"]["model"] == "test-model-snapshot"
+    assert result["raw_response"]["usage"]["input_tokens"] == 100
+    request = app.provider.requests[-1]
+    assert request["model"] == "test-model" and request["reasoning"] == {"effort": "high"}
+    assert request["max_output_tokens"] == 1024 and request["store"] is False
+    assert request["instructions"].startswith("Custom evaluation policy.")
+    assert "explanation language: he" in request["instructions"]
+    assert json.loads(request["input"][0]["content"]) == {
+        "lang": "he", "student_text": data["text"], "materials": data["materials"], "assignment": data["assignment"]}
+    calls = len(app.provider.requests)
+    for change in ({"text": "   "}, {"model": "unavailable"}, {"materials": ""},
+                   {"max_output_tokens": 0}, {"manual_probability": 50}, {"sample_ids": ["saved"]}):
+        assert requests.post(url, json={**data, **change}, headers=headers, timeout=5).status_code == 400
+    assert len(app.provider.requests) == calls
+    response = requests.post(url, json={"text": "Only this text.", "lang": None, "model": "test-model"},
+                             headers=headers, timeout=5)
+    assert response.ok
+    request = app.provider.requests[-1]
+    assert request["instructions"].startswith(app.prompt("repo")["text"])
+    assert "explanation language: en" in request["instructions"]
+    assert "reasoning" not in request
+    # A refusal or failed paid call must never become a zero score or be retried.
+    for reply in ({"status": "incomplete", "output": []}, ProviderError("Offline provider failure")):
+        app.provider.replies = [reply]
+        calls = len(app.provider.requests)
+        response = requests.post(url, json=data, headers=headers, timeout=5)
+        assert response.status_code == 400 and "model_probability" not in response.json()
+        assert len(app.provider.requests) == calls + 1
+    after = {p.relative_to(app.store.root): p.read_bytes() for p in app.store.root.rglob("*") if p.is_file()}
+    assert after == before
+    assert app.store.list("samples") == app.store.list("runs") == app.store.list("improvements") == []
+
+
+def test_one_text_modal(server: tuple[str, Service], tmp_path: Path) -> None:
+    from shutil import which
+    from schemas import CandidateInput
+    from provider import ProviderError
+    playwright = pytest.importorskip("playwright.sync_api")
+    executable = which("google-chrome") or which("chromium")
+    if not executable:
+        pytest.skip("Install Chrome/Chromium for browser verification")
+    base, app = server
+    candidate = app.save_candidate(CandidateInput(name="Quick check prompt", prompt="A candidate policy."))
+    app.provider.replies = [{"ai_origin_probability": .73, "ai_origin_explanation": "Evidence. <script>alert(1)</script>"}]
+    entered, release = threading.Event(), threading.Event()
+    def pause_call():
+        entered.set()
+        assert release.wait(10)
+    app.provider.on_call = pause_call
+    errors = []
+    with playwright.sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=executable, headless=True, args=["--no-sandbox"])
+        page = browser.new_page(viewport={"width": 1440, "height": 1050})
+        page.on("pageerror", lambda exc: errors.append(str(exc)))
+        page.goto(base + "/ai-origin/")
+        page.wait_for_function("document.querySelector('#connection').textContent.includes('connected')")
+        page.locator('[data-tab="evaluate"]').click()
+        page.locator('#run-model').select_option('test-model')
+        page.locator('#run-effort').select_option('high')
+        page.locator('#run-prompt').select_option(candidate['id'])
+        page.locator('#run-form [name="max_output_tokens"]').fill('1024')
+        page.locator('#strategy').select_option('manual')  # No saved samples are needed.
+        page.get_by_role('button', name='Evaluate one text', exact=True).click()
+        form = page.locator('#one-text-form')
+        playwright.expect(page.locator('#one-text-dialog')).to_be_visible()
+        playwright.expect(page.locator('#one-text-settings')).to_contain_text('Quick check prompt · test-model · effort: high · output limit: 1024')
+        page.locator('#submit-one-text').click()
+        assert not app.provider.requests  # Empty textarea fails browser validation.
+        form.locator('[name="text"]').fill('My one-off answer.')
+        form.locator('[name="lang"]').fill('he')
+        page.locator('#one-text-materials-mode').select_option('use')
+        page.locator('#submit-one-text').click()
+        assert not app.provider.requests  # Materials required only in use mode.
+        form.locator('[name="materials"]').fill('Course context.')
+        page.locator('#submit-one-text').click()
+        playwright.expect(page.locator('#submit-one-text')).to_be_disabled()
+        assert entered.wait(5)
+        page.locator('#close-one-text').click()
+        page.locator('#evaluate-one').click()
+        playwright.expect(page.locator('#submit-one-text')).to_be_disabled()
+        release.set()
+        playwright.expect(page.locator('#one-text-score')).to_have_text('73.0%')
+        playwright.expect(page.locator('#one-text-explanation')).to_have_text('Evidence. <script>alert(1)</script>')
+        assert page.locator('#one-text-result script').count() == 0
+        playwright.expect(page.locator('#one-text-json')).to_be_hidden()
+        page.get_by_text('Full JSON response', exact=True).click()
+        playwright.expect(page.locator('#one-text-json')).to_contain_text('test-model-snapshot')
+        assert len(app.provider.requests) == 1
+        request = app.provider.requests[0]
+        assert request['instructions'].startswith('A candidate policy.')
+        assert request['reasoning'] == {'effort': 'high'} and request['max_output_tokens'] == 1024
+        page.screenshot(path=str(tmp_path / 'one-text-desktop.png'), full_page=True)
+        page.locator('#close-one-text').click()
+        page.locator('#evaluate-one').click()
+        playwright.expect(page.locator('#one-text-score')).to_have_text('73.0%')
+        page.set_viewport_size({'width': 390, 'height': 844})
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        assert page.locator('#one-text-dialog').evaluate('(el) => el.scrollWidth <= el.clientWidth')
+        page.screenshot(path=str(tmp_path / 'one-text-mobile.png'), full_page=True)
+        app.provider.on_call = None
+        app.provider.replies = [ProviderError('Test provider failure')]
+        page.locator('#submit-one-text').click()
+        playwright.expect(page.locator('#one-text-status')).to_contain_text('Test provider failure')
+        playwright.expect(page.locator('#one-text-result')).to_be_hidden()
+        playwright.expect(page.locator('#submit-one-text')).to_be_enabled()
+        assert len(app.provider.requests) == 2
+        assert app.store.list('samples') == app.store.list('runs') == app.store.list('improvements') == []
+        browser.close()
+    assert errors == []

@@ -20,10 +20,12 @@ from pathlib import Path
 
 from langsmith import tracing_context
 
-from graphs import build_evaluation_graph, build_improvement_graph, improvement_rows
+from graphs import (build_evaluation_graph, build_improvement_graph, improvement_rows,
+                    evaluation_content, evaluation_instructions)
 from metrics import comparison, grouped_metrics, select_samples
-from provider import OpenAIProvider
-from schemas import CandidateInput, CandidateRename, CandidateReview, ImprovementInput, RunInput, SampleInput
+from provider import OpenAIProvider, make_request, parse_response
+from schemas import (CandidateInput, CandidateRename, CandidateReview, EvaluationOutput,
+                     ImprovementInput, OneTextInput, RunInput, SampleInput)
 from storage import Store, new_id, now
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -120,6 +122,29 @@ class Service:
             candidate["parent_prompt"].splitlines(True), candidate["prompt"].splitlines(True),
             fromfile="Parent prompt", tofile=candidate["name"]))
         return candidate
+
+    def evaluate_one(self, config: OneTextInput) -> dict:
+        """Evaluate once in the HTTP thread and return the full response.
+
+        Reuse batch prompt construction and output validation, but do not create
+        samples, runs, files or improvement records. Disable tracing here too:
+        even on a tracing-enabled server this text is a transient input.
+        """
+        self.provider.validate_model(config)
+        # Read candidates directly. prompt() can import a coder's output and
+        # write its metadata, which would violate this endpoint's no-save rule.
+        prompt = (REPO_PROMPT.read_text(encoding="utf-8") if config.prompt_id == "repo"
+                  else self.store.get("candidates", config.prompt_id)["prompt"])
+        if not prompt.strip():
+            raise ValueError("This candidate is awaiting coder output. Load its output before evaluation.")
+        values = config.model_dump()
+        request = make_request(values, evaluation_instructions(prompt, values),
+                               evaluation_content(values), "evaluation")
+        with tracing_context(enabled=False):
+            response = self.provider.complete(request)
+        result = EvaluationOutput.model_validate(parse_response(response))
+        return {"model_probability": result.ai_origin_probability * 100,
+                "explanation": result.ai_origin_explanation, "raw_response": response}
 
     def start_run(self, config: RunInput) -> dict:
         self.provider.validate_model(config)

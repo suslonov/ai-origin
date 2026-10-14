@@ -80,6 +80,12 @@ speaks HTTP. Its normal static-site exposure is unchanged.
    model from the account's live `/v1/models` response, effort, and sample strategy.
    The current prompt is read from `src/system_bucket/exam/grade/ai_origin.txt`
    each time a run starts. No cached or deployed S3 prompt is substituted.
+   For a quick check, click **Evaluate one text** in the same action row. Paste
+   text into the modal, specify its language and optional course context, and
+   evaluate with the selected prompt, model, effort and output token limit.
+   The modal shows the AI-origin score, explanation and expandable full JSON
+   response. This one-off check saves no samples, runs or improvements and does
+   not send a trace; dataset, selection and backtest settings do not apply.
 3. **Run history:** inspect all selected samples, the manual/model percentages,
    model explanations and errors; export the entire table to CSV. Text links open
    the version saved in that run. Jobs run in the background; the page polls while

@@ -325,6 +325,57 @@ $('run-form').onsubmit = event => { event.preventDefault(); action(async () => {
   data.sample_ids = [...$('manual-selection').querySelectorAll('input:checked')].map(el => el.value);
   const run = await api('runs',data); await loadLists(); await showRun(run.id); switchTab('results');
 }, $('start-run')); };
+// Keep one-off inputs/results in this page only. A pending request survives
+// closing/reopening the dialog, so reopening cannot start a duplicate paid call.
+let oneTextSettings = null, oneTextBusy = false;
+$('evaluate-one').onclick = () => {
+  if (oneTextBusy) { $('one-text-dialog').showModal(); return; }
+  const form = $('run-form');
+  const names = ['prompt_id', 'model', 'effort', 'max_output_tokens'];
+  if (!names.every(name => form.elements[name].reportValidity())) return;
+  const nextSettings = Object.fromEntries(names.map(name => [name, form.elements[name].value]));
+  nextSettings.max_output_tokens = Number(nextSettings.max_output_tokens);
+  if (JSON.stringify(nextSettings) !== JSON.stringify(oneTextSettings)) {
+    $('one-text-result').hidden = true;
+    $('one-text-status').textContent = '';
+  }
+  oneTextSettings = nextSettings;
+  $('one-text-settings').textContent = `${$('run-prompt').selectedOptions[0].textContent} · ${oneTextSettings.model} · effort: ${oneTextSettings.effort} · output limit: ${oneTextSettings.max_output_tokens}`;
+  $('one-text-dialog').showModal();
+};
+$('close-one-text').onclick = () => $('one-text-dialog').close();
+$('one-text-materials-mode').onchange = () => {
+  const use = $('one-text-materials-mode').value === 'use';
+  $('one-text-materials-field').hidden = !use;
+  $('one-text-form').elements.materials.required = use;
+};
+$('one-text-form').onsubmit = async event => {
+  event.preventDefault();
+  if (oneTextBusy || !oneTextSettings) return;
+  const data = {...readForm(event.target), ...oneTextSettings};
+  oneTextBusy = true;
+  $('one-text-fields').disabled = true;
+  $('one-text-result').hidden = true;
+  $('one-text-json-details').open = false;
+  $('one-text-score').textContent = $('one-text-explanation').textContent = $('one-text-json').textContent = '';
+  $('one-text-status').className = 'help';
+  $('one-text-status').textContent = 'Evaluating… Closing this window does not cancel the request.';
+  try {
+    const result = await api('evaluate-one', data);
+    $('one-text-score').textContent = fmt(result.model_probability, '%');
+    // Model output is untrusted text, including the explanation and full JSON.
+    $('one-text-explanation').textContent = result.explanation;
+    $('one-text-json').textContent = JSON.stringify(result.raw_response, null, 2);
+    $('one-text-result').hidden = false;
+    $('one-text-status').textContent = 'Evaluation complete.';
+  } catch (error) {
+    $('one-text-status').className = 'positive';
+    $('one-text-status').textContent = error.message;
+  } finally {
+    oneTextBusy = false;
+    $('one-text-fields').disabled = false;
+  }
+};
 $('preview-prompt').onclick = () => action(async () => { const p = await api('prompt?id=' + encodeURIComponent($('run-prompt').value)); $('text-heading').textContent = p.name; $('text-content').textContent = p.text; $('text-dialog').showModal(); });
 $('cancel-run').onclick = () => action(async () => { if (state.run) { await api('runs/' + state.run.id + '/cancel',{}); await showRun(state.run.id); } });
 $('export-csv').onclick = () => action(async () => { if (state.run) await download('runs/' + state.run.id + '/csv',state.run.id + '.csv'); });

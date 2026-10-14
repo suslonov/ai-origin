@@ -1,7 +1,7 @@
 """Validate every browser input and every model output at the boundary.
 
 The UI and files use 0–100 percentages; the existing evaluation prompt returns
-0–1. Only graphs.save_result converts that model result into a percentage.
+0–1. The batch and one-text result handlers convert it into a percentage.
 Keeping this distinction explicit avoids a silent 100× scoring error.
 """
 from __future__ import annotations
@@ -52,6 +52,31 @@ class ModelInput(InputModel):
     model: str = Field(default="gpt-6-luna", min_length=1, max_length=150)
     effort: Literal["auto", "none", "minimal", "low", "medium", "high", "xhigh", "max"] = "auto"
     max_output_tokens: int = Field(default=8192, ge=512, le=65536)
+
+
+class OneTextInput(ModelInput):
+    """A transient assessment needs text/context, but no label or dataset.
+
+    Only inference settings are accepted: sample selection and backtesting are
+    batch-run concerns and cannot accidentally pull saved texts into this call.
+    """
+    prompt_id: str = "repo"
+    text: str = Field(min_length=1, max_length=200_000)
+    lang: str = Field(default="en", pattern=r"^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$")
+    materials_mode: Literal["use", "unavailable", "irrelevant"] = "irrelevant"
+    materials: str = Field(default="", max_length=200_000)
+    assignment: str = Field(default="", max_length=30_000)
+
+    @field_validator("lang", mode="before")
+    @classmethod
+    def default_language(cls, value: str | None) -> str:
+        return (value or "en").strip() or "en"
+
+    @model_validator(mode="after")
+    def check_materials(self) -> Self:
+        if self.materials_mode == "use" and not self.materials:
+            raise ValueError("Add course materials or choose unavailable / irrelevant.")
+        return self
 
 
 class RunInput(ModelInput):

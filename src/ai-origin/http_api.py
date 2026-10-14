@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 from pydantic import ValidationError
 
 from provider import ProviderError
-from schemas import CandidateInput, CandidateRename, CandidateReview, ImprovementInput, RunInput, SampleInput
+from schemas import CandidateInput, CandidateRename, CandidateReview, ImprovementInput, OneTextInput, RunInput, SampleInput
 from service import Service
 
 LOG = logging.getLogger(__name__)
@@ -116,6 +116,8 @@ def handle(handler: BaseHTTPRequestHandler) -> None:
             if len(parts) == 2 and parts[0] == "samples":
                 revision = body.pop("revision", None)
                 return send(handler, service.save_sample(SampleInput.model_validate(body), parts[1], revision))
+            if parts == ["evaluate-one"]:
+                return send(handler, service.evaluate_one(OneTextInput.model_validate(body)))
             if parts == ["runs"]:
                 return send(handler, service.start_run(RunInput.model_validate(body)), 202)
             if len(parts) == 3 and parts[0] == "runs" and parts[2] == "cancel":

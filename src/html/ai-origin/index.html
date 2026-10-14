@@ -40,7 +40,7 @@
         <label>Backtest the exact samples from<select name="reference_run_id" id="reference-run"><option value="">New selection</option></select></label>
         <p id="selection-help" class="help wide">Balanced selection gives each language × manual-score band an equal turn, without duplicating samples. The saved seed makes selection repeatable.</p>
         <div id="manual-selection" class="wide selection-list" hidden></div>
-        <div class="actions wide"><button id="start-run">Start evaluation</button><button type="button" id="preview-prompt" class="secondary">View selected prompt</button><span id="selected-count" class="help"></span></div>
+        <div class="actions wide"><button id="start-run">Start evaluation</button><button type="button" id="evaluate-one" class="secondary">Evaluate one text</button><button type="button" id="preview-prompt" class="secondary">View selected prompt</button><span id="selected-count" class="help"></span></div>
         <p class="help wide">“Auto” uses the model's default effort. Model-specific API errors are saved; settings are never silently substituted.</p>
       </form>
     </section>
@@ -118,6 +118,27 @@
       <label class="wide" id="materials-field" hidden>Course materials<textarea name="materials" dir="auto" rows="6" maxlength="200000"></textarea></label>
       <div class="wide actions"><button id="save-sample">Save sample</button><span id="sample-id" class="help"></span></div>
     </form>
+  </dialog>
+  <dialog id="one-text-dialog" aria-labelledby="one-text-heading">
+    <div class="section-head"><h2 id="one-text-heading">Evaluate one text</h2><button type="button" id="close-one-text" class="secondary">Close</button></div>
+    <p id="one-text-settings" class="help"></p>
+    <p class="help">One-off evaluation. Nothing is saved; no improvement step is offered.</p>
+    <form id="one-text-form">
+      <fieldset id="one-text-fields" class="form-grid">
+        <label class="wide">Text<textarea name="text" dir="auto" rows="10" required maxlength="200000" autofocus></textarea></label>
+        <label>Language code<input name="lang" value="en" list="languages" required placeholder="en, he, ru…"></label>
+        <label>Course materials<select name="materials_mode" id="one-text-materials-mode"><option value="irrelevant">Irrelevant</option><option value="unavailable">Unavailable</option><option value="use">Use supplied materials</option></select></label>
+        <label class="wide" id="one-text-materials-field" hidden>Course materials<textarea name="materials" dir="auto" rows="4" maxlength="200000"></textarea></label>
+        <details class="wide"><summary>Assignment / question (optional)</summary><label>Assignment / question<textarea name="assignment" dir="auto" rows="3" maxlength="30000"></textarea></label></details>
+        <div class="actions wide"><button id="submit-one-text">Evaluate text</button></div>
+      </fieldset>
+    </form>
+    <p id="one-text-status" role="status" aria-live="polite"></p>
+    <div id="one-text-result" class="panel" hidden>
+      <h3>AI-origin score: <span id="one-text-score"></span></h3>
+      <p id="one-text-explanation" dir="auto"></p>
+      <details id="one-text-json-details"><summary>Full JSON response</summary><pre id="one-text-json"></pre></details>
+    </div>
   </dialog>
   <dialog id="text-dialog"><div class="section-head"><h2 id="text-heading">Prompt</h2><button id="close-text" class="secondary">Close</button></div><pre id="text-content"></pre></dialog>
 </body>
